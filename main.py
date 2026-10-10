@@ -11,10 +11,27 @@ import os
 import socket
 import sys
 import time
+import traceback
 import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _install_excepthook() -> None:
+    """兜底:PyQt6.5+ 中 slot 内未处理异常默认 qFatal 直接闪退;
+    换成自定义 excepthook 后 PyQt 会把异常交给它,记录日志并继续运行。"""
+    def hook(t, v, tb):
+        text = "".join(traceback.format_exception(t, v, tb))
+        sys.stderr.write(text)
+        try:
+            log = Path.home() / ("Library/Logs/LAN文件传输v2.log"
+                                 if sys.platform == "darwin" else "LAN文件传输v2.log")
+            with open(log, "a", encoding="utf-8") as f:
+                f.write(text + "\n")
+        except Exception:
+            pass
+    sys.excepthook = hook
 
 
 def _smoke() -> int:
@@ -88,6 +105,7 @@ def main() -> int:
 
     from lan_transfer.gui.main_window import MainWindow, QSS
 
+    _install_excepthook()
     app = QApplication(sys.argv)
     app.setApplicationName("LAN文件传输v2")
     app.setStyleSheet(QSS)
