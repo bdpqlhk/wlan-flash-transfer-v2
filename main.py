@@ -101,15 +101,33 @@ def main() -> int:
         path = sys.argv[i + 1] if len(sys.argv) > i + 1 else "/tmp/lan-transfer-v2.png"
         return run_screenshot(path)
 
+    from PyQt6.QtCore import QEvent, Qt
     from PyQt6.QtWidgets import QApplication
 
     from lan_transfer.gui.main_window import MainWindow, QSS
 
     _install_excepthook()
-    app = QApplication(sys.argv)
+
+    class LanApp(QApplication):
+        """macOS:主窗口收到托盘后,点 Dock 图标重新打开。"""
+        mainwin = None
+
+        def event(self, e):
+            if (e.type() == QEvent.Type.ApplicationStateChange
+                    and self.applicationState() == Qt.ApplicationState.ApplicationActive
+                    and sys.platform == "darwin"):
+                w = LanApp.mainwin
+                if w is not None and not w.isVisible():
+                    w.show()
+                    w.raise_()
+                    w.activateWindow()
+            return super().event(e)
+
+    app = LanApp(sys.argv)
     app.setApplicationName("LAN文件传输v2")
     app.setStyleSheet(QSS)
     win = MainWindow()
+    LanApp.mainwin = win
     win.show()
     return app.exec()
 

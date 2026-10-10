@@ -13,12 +13,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QDesktopServices, QImage, QPainter, QPixmap
+from PyQt6.QtCore import QObject, QPointF, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import (
+    QAction, QColor, QDesktopServices, QIcon, QImage, QPainter, QPixmap,
+)
 from PyQt6.QtWidgets import (
     QApplication, QDockWidget, QFileDialog, QFormLayout, QFrame, QGroupBox,
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
-    QPushButton, QStatusBar, QTabWidget, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox,
+    QPlainTextEdit, QPushButton, QStatusBar, QSystemTrayIcon, QTabWidget,
+    QVBoxLayout, QWidget,
 )
 
 from .. import __version__
@@ -69,6 +72,10 @@ class MainWindow(QMainWindow):
         self._build_log_dock()
         self._build_statusbar()
         self._build_menus()
+        self._build_tray()
+
+        self._really_quitting = False
+        self._tray_tip_shown = False
 
         self._reset_ui_stopped()
         self._refresh_files()          # 目录里已有的文件直接展示
@@ -253,7 +260,9 @@ class MainWindow(QMainWindow):
         act_refresh.setShortcut("F5")
         act_refresh.triggered.connect(self._refresh_files)
         m_file.addAction(act_refresh)
-        m_file.addAction("退出", self.close)
+        act_quit = QAction("退出", self)
+        act_quit.triggered.connect(self.real_quit)  # 真正退出;点窗口 ✗ 是收到托盘
+        m_file.addAction(act_quit)
 
         m_view = self.menuBar().addMenu("视图")
         m_view.addAction(self._log_dock.toggleViewAction())
@@ -262,6 +271,96 @@ class MainWindow(QMainWindow):
         act_about = QAction("关于", self)
         act_about.triggered.connect(self._about)
         m_help.addAction(act_about)
+
+    # ------------------------------------------------------------------ #
+    # 托盘(Tray):关窗默认收到这里,服务继续运行;菜单「退出」才真正退出
+    # ------------------------------------------------------------------ #
+    def _build_tray(self) -> None:
+        self._tray = QSystemTrayIcon(QIcon(self._render_tray_icon()), self)
+        self._tray.setToolTip("LAN 文件传输 v2")
+
+        menu = QMenu()
+        self._act_show = QAction("显示主窗口", self)
+        self._act_show.triggered.connect(self._show_from_tray)
+        self._act_toggle = QAction("启动服务", self)
+        self._act_toggle.triggered.connect(self._toggle_service_from_tray)
+        act_open = QAction("打开网页", self)
+        act_open.triggered.connect(self._open_browser)
+        act_quit = QAction("退出", self)
+        act_quit.triggered.connect(self.real_quit)
+        for a in (self._act_show,):
+            menu.addAction(a)
+        menu.addSeparator()
+        for a in (self._act_toggle, act_open):
+            menu.addAction(a)
+        menu.addSeparator()
+        menu.addAction(act_quit)
+        self._tray.setContextMenu(menu)
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
+
+    def _render_tray_icon(self) -> QPixmap:
+        """菜单栏图标:蓝紫渐变圆角底 + 白色闪电(与 app 图标一致,无需外部文件)。"""
+        size = 64
+        pm = QPixmap(size, size)
+        pm.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        from PyQt6.QtGui import QLinearGradient
+        grad = QLinearGradient(0, 0, size, size)
+        grad.setColorAt(0.0, QColor("#4f8af7"))
+        grad.setColorAt(1.0, QColor("#7c6ff7"))
+        p.setBrush(grad)
+        p.setPen(Qt.PenStyle.NoPen)
+        m = size * 0.10
+        p.drawRoundedRect(int(m), int(m), int(size - 2 * m), int(size - 2 * m),
+                          int(size * 0.22), int(size * 0.22))
+        bolt = [(0.60, 0.06), (0.26, 0.56), (0.47, 0.56),
+                (0.38, 0.94), (0.74, 0.42), (0.52, 0.42), (0.66, 0.06)]
+        sx, sy, ox, oy = size * 0.84, size * 0.88, size * 0.08, size * 0.06
+        path = [QPointF(ox + x * sx, oy + y * sy) for x, y in bolt]
+        p.setBrush(QColor("#ffffff"))
+        p.drawPolygon(*path)
+        p.end()
+        return pm
+
+    def _on_tray_activated(self, reason) -> None:
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger,
+                      QSystemTrayIcon.ActivationReason.DoubleClick):
+            self._show_from_tray()
+
+    def _show_from_tray(self) -> None:
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def _toggle_service_from_tray(self) -> None:
+        if self._server is not None and self._server.running:
+            self.stop_server()
+        else:
+            self.start_server()
+            self._show_from_tray()
+
+    def real_quit(self) -> None:
+        """真正退出(Tray 菜单 / 文件菜单「退出」)。"""
+        self._really_quitting = True
+        self.close()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 (Qt 命名)
+        if self._really_quitting or not self._tray.isVisible():
+            self.stop_server()          # 服务干净收尾(daemon 线程兜底)
+            self._tray.hide()
+            event.accept()
+            return
+        # 点窗口 ✗:收到菜单栏,服务继续运行
+        event.ignore()
+        self.hide()
+        if not self._tray_tip_shown:
+            self._tray_tip_shown = True
+            self._tray.showMessage(
+                "LAN 文件传输仍在运行",
+                "窗口已收到菜单栏,服务保持运行。点菜单栏图标可重新打开;退出请用其菜单中的「退出」。",
+                QSystemTrayIcon.MessageIcon.Information, 5000)
 
     def _about(self) -> None:
         QMessageBox.about(
@@ -333,6 +432,8 @@ class MainWindow(QMainWindow):
         self._start_btn.setEnabled(False)
         self._port_edit.setEnabled(False)
         self._dir_edit.setEnabled(False)
+        self._act_toggle.setText("停止服务")
+        self._act_toggle.setEnabled(False)
         self.show_status("正在绑定端口…")
 
     def _set_running_ui(self, srv: TransferServer) -> None:
@@ -342,6 +443,8 @@ class MainWindow(QMainWindow):
         self._stop_btn.setEnabled(True)
         self._port_edit.setEnabled(False)
         self._dir_edit.setEnabled(False)
+        self._act_toggle.setText("停止服务")
+        self._act_toggle.setEnabled(True)
         self._qr_lbl.setPixmap(self._render_qr(srv.url))
         self._qr_hint.setText("扫码打开 · 或在浏览器输入下方地址")
         self.show_status(f"✓ 服务运行中: {srv.url}")
@@ -353,6 +456,8 @@ class MainWindow(QMainWindow):
         self._stop_btn.setEnabled(False)
         self._port_edit.setEnabled(True)
         self._dir_edit.setEnabled(True)
+        self._act_toggle.setText("启动服务")
+        self._act_toggle.setEnabled(True)
         self._qr_lbl.setText("未运行")
         self._qr_lbl.setPixmap(QPixmap())
         self._qr_hint.setText("启动服务后显示二维码\n手机摄像头对准即可打开")
