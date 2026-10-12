@@ -45,10 +45,11 @@ jobs:
       - name: Package artifact (zip)
         shell: bash
         run: |
+          VER="${GITHUB_REF_NAME}"
           if [ -d "dist/Wlan-Flash-Transfer-V2.app" ]; then
-            cd dist && zip -r -y "Wlan-Flash-Transfer-V2-macOS.zip" "Wlan-Flash-Transfer-V2.app"
+            cd dist && zip -r -y "Wlan-Flash-Transfer-V2-${VER}-macOS.zip" "Wlan-Flash-Transfer-V2.app"
           else
-            cd dist && 7z a "Wlan-Flash-Transfer-V2-Windows.zip" "Wlan-Flash-Transfer-V2.exe" || cp "Wlan-Flash-Transfer-V2.exe" "Wlan-Flash-Transfer-V2-Windows.exe"
+            cd dist && 7z a "Wlan-Flash-Transfer-V2-${VER}-Windows.zip" "Wlan-Flash-Transfer-V2.exe" || cp "Wlan-Flash-Transfer-V2.exe" "Wlan-Flash-Transfer-V2-${VER}-Windows.exe"
           fi
 
       - name: Upload artifact
@@ -75,4 +76,5 @@ jobs:
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
           files: artifacts/*
