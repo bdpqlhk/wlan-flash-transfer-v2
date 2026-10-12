@@ -32,12 +32,12 @@ from .theme import DIM, GREEN, QSS, RED
 from .widgets import chip, make_mono, make_table, set_chip, set_rows
 
 def _default_share_dir() -> Path:
-    """默认共享目录: ~/LAN文件传输。
+    """默认共享目录: ~/Wlan-Flash-Transfer。
 
     打包态 __file__ 在 .app 包内(PyInstaller 冻结目录),不可写也不该写;
     固定用用户主目录,开发/打包行为一致。
     """
-    return Path.home() / "LAN文件传输"
+    return Path.home() / "Wlan-Flash-Transfer"
 
 
 class _Bridge(QObject):
@@ -184,7 +184,9 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QHeaderView
         self._table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Fixed)
-        self._table.setColumnWidth(1, 150)
+        self._table.setColumnWidth(1, 164)
+        # 增大行高:macOS 原生按钮立体边框会略超出控件矩形,行高不足会显得被裁切
+        self._table.verticalHeader().setDefaultSectionSize(36)
         self._table.doubleClicked.connect(
             lambda idx: self._open_file(self._table.item(idx.row(), 0).text()))
         flay.addWidget(self._table)
@@ -497,11 +499,11 @@ class MainWindow(QMainWindow):
             h.setSpacing(6)
             pv = QPushButton("预览")
             pv.setToolTip("直接打开该文件")
-            pv.setFixedSize(58, 24)
+            pv.setFixedSize(64, 28)
             pv.clicked.connect(lambda _=False, n=name: self._open_file(n))
             cp = QPushButton("复制")
             cp.setToolTip("复制文件到剪贴板,可在访达/资源管理器粘贴")
-            cp.setFixedSize(58, 24)
+            cp.setFixedSize(64, 28)
             cp.clicked.connect(lambda _=False, n=name: self._copy_file(n))
             h.addStretch(1)
             h.addWidget(pv)
@@ -509,6 +511,7 @@ class MainWindow(QMainWindow):
             h.addStretch(1)
             self._table.setCellWidget(r, 1, w)
         self._count_lbl.setText(f"共 {len(entries)} 个")
+        self._table.scrollToTop()  # 刷新后回到列表顶部,滚动条不再停在原位置
 
     def _copy_file(self, name: str) -> None:
         """复制文件本体到剪贴板(访达/资源管理器可直接 ⌘V/Ctrl+V 粘贴)。"""
@@ -633,7 +636,7 @@ class MainWindow(QMainWindow):
 
 def launch() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("LAN文件传输v2")
+    app.setApplicationName("Wlan-Flash-Transfer-V2")
     app.setStyleSheet(QSS)
     win = MainWindow()
     win.show()
