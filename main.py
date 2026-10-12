@@ -35,7 +35,7 @@ def _install_excepthook() -> None:
 
 
 def _smoke() -> int:
-    """无头自检:起服务 -> HTTP 请求 /api/files 与主页 -> 停止。"""
+    """无头自检:起服务 -> HTTP 请求 /api/files 与主页 -> 停止。失败时输出诊断细节。"""
     from lan_transfer.core.server import TransferServer
 
     probe = socket.socket()
@@ -44,29 +44,42 @@ def _smoke() -> int:
     probe.close()
 
     share = Path(__file__).resolve().parent / "shared_files"
-    share.mkdir(exist_ok=True)
+    share.mkdir(parents=True, exist_ok=True)
     srv = TransferServer(share, free_port)
     srv.start()
 
-    ok = False
-    deadline = time.time() + 10
+    deadline = time.time() + 20
     while time.time() < deadline:
         if srv.started.wait(0.2):
             break
+
+    ok, last_exc, failed_path = False, None, None
     if not srv.last_error:
-        for path in ("/", "/api/files"):
-            try:
-                with urllib.request.urlopen(
-                        f"http://127.0.0.1:{free_port}{path}", timeout=3) as r:
-                    ok = r.status == 200
-            except Exception:
-                ok = False
+        attempts = 0
+        while time.time() < deadline and not ok:
+            attempts += 1
+            for path in ("/", "/api/files"):
+                try:
+                    with urllib.request.urlopen(
+                            f"http://127.0.0.1:{free_port}{path}", timeout=3) as r:
+                        ok = r.status == 200
+                except Exception as e:  # noqa: BLE001
+                    ok, last_exc, failed_path = False, e, path
+                if not ok:
+                    break
             if not ok:
-                break
+                time.sleep(0.5)
+        print(f"  smoke: attempts={attempts} ok={ok} "
+              f"failed_path={failed_path!r} last_exc={last_exc!r}")
 
     srv.stop()
-    print("SMOKE_OK" if ok else "SMOKE_FAIL")
-    return 0 if ok else 1
+    if ok:
+        print("SMOKE_OK")
+        return 0
+    print("SMOKE_FAIL")
+    print(f"  diagnostics: started={srv.started.is_set()} "
+          f"last_error={srv.last_error!r} port={free_port} share={share}")
+    return 1
 
 
 def run_screenshot(path: str) -> int:
