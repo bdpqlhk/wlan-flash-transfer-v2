@@ -8,7 +8,7 @@
 
 ## 界面
 
-- 顶部品牌区 + 「服务 / 聊天」双 Tab + 底部「服务日志」Dock + 状态栏
+- 顶部品牌区 + 「服务 / 聊天」双 Tab(服务页右侧:二维码 + 服务日志;共享文件表拉伸到底)+ 状态栏
 - 状态徽标(○ 已停止 / ● 启动中 / ● 运行中)、蓝色主按钮 `#2e70ef`
 - **屏上二维码**:启动后直接显示访问地址二维码,手机扫码直达(纯标准库 `qrterm` 生成)
 - 共享文件表:大小/修改时间,双击打开,支持删除;聊天 Tab 实时镜像网页端消息
@@ -47,12 +47,12 @@ pip3 install -r requirements.txt   # PyQt6 + PyInstaller
 python3 main.py                    # 开发运行
 python3 main.py --smoke            # 无头自检(起服务 -> 请求接口 -> 停止)
 python3 main.py --screenshot s.png # 无头渲染截图
-bash build.sh                      # macOS → dist/LAN文件传输v2.app(含 frozen 冒烟)
-build_windows.bat                  # Windows → dist\LAN文件传输v2.exe(单文件)
+bash build.sh                      # macOS → dist/Wlan-Flash-Transfer-V2.app(含 frozen 冒烟)
+build_windows.bat                  # Windows → dist\Wlan-Flash-Transfer-V2.exe(单文件)
 ```
 
 打包产物免安装(自带运行时);分发被 Gatekeeper 拦截时:
-`xattr -dr com.apple.quarantine dist/LAN文件传输v2.app`。
+`xattr -dr com.apple.quarantine dist/Wlan-Flash-Transfer-V2.app`。
 
 ## 使用
 

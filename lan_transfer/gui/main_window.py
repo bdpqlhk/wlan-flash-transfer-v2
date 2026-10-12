@@ -13,12 +13,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QPointF, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtCore import QMimeData, QObject, QPointF, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import (
     QAction, QColor, QDesktopServices, QIcon, QImage, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QDockWidget, QFileDialog, QFormLayout, QFrame, QGroupBox,
+    QApplication, QFileDialog, QFormLayout, QFrame, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox,
     QPlainTextEdit, QPushButton, QStatusBar, QSystemTrayIcon, QTabWidget,
     QVBoxLayout, QWidget,
@@ -50,7 +50,7 @@ class _Bridge(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LAN 文件传输 v2 · 局域网 AirDrop")
+        self.setWindowTitle("Wlan-Flash-Transfer-V2")
         self.resize(1020, 700)
         self.setMinimumSize(860, 560)
 
@@ -69,7 +69,6 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self._build_header())
         layout.addWidget(self._build_tabs())
-        self._build_log_dock()
         self._build_statusbar()
         self._build_menus()
         self._build_tray()
@@ -89,15 +88,11 @@ class MainWindow(QMainWindow):
         header.setObjectName("header")
         hl = QHBoxLayout(header)
         hl.setContentsMargins(16, 12, 16, 12)
-        brand = QLabel("⚡ LAN 文件传输")
+        brand = QLabel("⚡ Wlan-Flash-Transfer-V2")
         brand.setObjectName("brand")
-        subtitle = QLabel("局域网 AirDrop · 浏览器即开即用 · PyQt6 重写版")
-        subtitle.setObjectName("subtitle")
         version = QLabel(f"v{__version__}")
         version.setObjectName("version")
         hl.addWidget(brand)
-        hl.addSpacing(12)
-        hl.addWidget(subtitle)
         hl.addStretch(1)
         hl.addWidget(version)
         return header
@@ -136,6 +131,8 @@ class MainWindow(QMainWindow):
 
         cfg = QGroupBox("服务配置")
         form = QFormLayout(cfg)
+        # macOS 原生风格默认字段不拉伸(FieldsStayAtSizeHint),显式让字段占满行宽
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         self._port_edit = QLineEdit(str(8765))
         self._dir_edit = QLineEdit(str(_default_share_dir()))
@@ -182,7 +179,12 @@ class MainWindow(QMainWindow):
         fbar.addWidget(self._del_btn)
         fbar.addWidget(refresh)
         flay.addLayout(fbar)
-        self._table = make_table(["文件名", "大小", "修改时间"], stretch_col=0)
+        self._table = make_table(["文件名", "操作", "大小", "修改时间"], stretch_col=0)
+        # 行内按钮不计入 ResizeToContents 列宽,「操作」列需固定宽度,避免按钮溢出遮挡
+        from PyQt6.QtWidgets import QHeaderView
+        self._table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(1, 150)
         self._table.doubleClicked.connect(
             lambda idx: self._open_file(self._table.item(idx.row(), 0).text()))
         flay.addWidget(self._table)
@@ -190,13 +192,16 @@ class MainWindow(QMainWindow):
 
         root.addLayout(left, 3)
 
-        # ---- 右列:二维码 ----
+        # ---- 右列:二维码 + 服务日志 ----
+        right = QVBoxLayout()
+        right.setSpacing(12)
+
         qr_box = QGroupBox("手机扫码直达")
         qlay = QVBoxLayout(qr_box)
         qlay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self._qr_lbl = QLabel("未运行")
         self._qr_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._qr_lbl.setMinimumSize(220, 220)
+        self._qr_lbl.setMinimumSize(200, 200)
         qlay.addStretch(1)
         qlay.addWidget(self._qr_lbl)
         self._qr_hint = QLabel("启动服务后显示二维码\n手机摄像头对准即可打开")
@@ -204,7 +209,19 @@ class MainWindow(QMainWindow):
         self._qr_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qlay.addWidget(self._qr_hint)
         qlay.addStretch(1)
-        root.addWidget(qr_box, 1)
+        right.addWidget(qr_box)
+
+        log_box = QGroupBox("服务日志")
+        llay = QVBoxLayout(log_box)
+        self._log = QPlainTextEdit()
+        self._log.setReadOnly(True)
+        self._log.setMaximumBlockCount(5000)
+        self._log.setPlaceholderText("HTTP 请求与服务事件…")
+        make_mono(self._log)
+        llay.addWidget(self._log)
+        right.addWidget(log_box, 1)
+
+        root.addLayout(right, 1)
         return page
 
     def _build_chat_tab(self) -> QWidget:
@@ -228,22 +245,6 @@ class MainWindow(QMainWindow):
         root.addWidget(self._chat_view, 1)
         return page
 
-    def _build_log_dock(self) -> None:
-        self._log_dock = QDockWidget("服务日志", self)
-        self._log_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        widget = QWidget()
-        lay = QVBoxLayout(widget)
-        lay.setContentsMargins(8, 4, 8, 8)
-        self._log = QPlainTextEdit()
-        self._log.setReadOnly(True)
-        self._log.setMaximumBlockCount(5000)
-        self._log.setPlaceholderText("HTTP 请求与服务事件…")
-        make_mono(self._log)
-        lay.addWidget(self._log)
-        self._log_dock.setWidget(widget)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._log_dock)
-        self.resizeDocks([self._log_dock], [130], Qt.Orientation.Vertical)
-
     def _build_statusbar(self) -> None:
         bar = QStatusBar()
         self.setStatusBar(bar)
@@ -264,9 +265,6 @@ class MainWindow(QMainWindow):
         act_quit.triggered.connect(self.real_quit)  # 真正退出;点窗口 ✗ 是收到托盘
         m_file.addAction(act_quit)
 
-        m_view = self.menuBar().addMenu("视图")
-        m_view.addAction(self._log_dock.toggleViewAction())
-
         m_help = self.menuBar().addMenu("帮助")
         act_about = QAction("关于", self)
         act_about.triggered.connect(self._about)
@@ -277,7 +275,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
     def _build_tray(self) -> None:
         self._tray = QSystemTrayIcon(QIcon(self._render_tray_icon()), self)
-        self._tray.setToolTip("LAN 文件传输 v2")
+        self._tray.setToolTip("Wlan-Flash-Transfer-V2")
 
         menu = QMenu()
         self._act_show = QAction("显示主窗口", self)
@@ -358,7 +356,7 @@ class MainWindow(QMainWindow):
         if not self._tray_tip_shown:
             self._tray_tip_shown = True
             self._tray.showMessage(
-                "LAN 文件传输仍在运行",
+                "Wlan-Flash-Transfer-V2 仍在运行",
                 "窗口已收到菜单栏,服务保持运行。点菜单栏图标可重新打开;退出请用其菜单中的「退出」。",
                 QSystemTrayIcon.MessageIcon.Information, 5000)
 
@@ -487,11 +485,42 @@ class MainWindow(QMainWindow):
         self._fill_files(result)
 
     def _fill_files(self, entries) -> None:
-        rows = [[name, format_size(size),
+        rows = [[name, "", format_size(size),
                  datetime.fromtimestamp(mtime).strftime("%m-%d %H:%M")]
                 for name, size, mtime in entries]
         set_rows(self._table, rows)
-        self._count_lbl.setText(f"共 {len(rows)} 个")
+        # 第 2 列放「预览 / 复制」行内按钮
+        for r, (name, _size, _mtime) in enumerate(entries):
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(6, 2, 6, 2)
+            h.setSpacing(6)
+            pv = QPushButton("预览")
+            pv.setToolTip("直接打开该文件")
+            pv.setFixedSize(58, 24)
+            pv.clicked.connect(lambda _=False, n=name: self._open_file(n))
+            cp = QPushButton("复制")
+            cp.setToolTip("复制文件到剪贴板,可在访达/资源管理器粘贴")
+            cp.setFixedSize(58, 24)
+            cp.clicked.connect(lambda _=False, n=name: self._copy_file(n))
+            h.addStretch(1)
+            h.addWidget(pv)
+            h.addWidget(cp)
+            h.addStretch(1)
+            self._table.setCellWidget(r, 1, w)
+        self._count_lbl.setText(f"共 {len(entries)} 个")
+
+    def _copy_file(self, name: str) -> None:
+        """复制文件本体到剪贴板(访达/资源管理器可直接 ⌘V/Ctrl+V 粘贴)。"""
+        from PyQt6.QtCore import QMimeData
+        path = (self._server.upload_dir / name) if self._server is not None else None
+        if path is None or not path.is_file():
+            self.show_status(f"✗ 文件不存在:{name}", error=True)
+            return
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(str(path))])
+        QApplication.clipboard().setMimeData(mime)
+        self.show_status(f"✓ 已复制 {name} 到剪贴板")
 
     def _delete_selected(self) -> None:
         row = self._table.currentRow()

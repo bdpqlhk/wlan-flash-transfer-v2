@@ -1,0 +1,78 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: Wlan-Flash-Transfer-V2-macOS
+          - os: windows-latest
+            artifact: Wlan-Flash-Transfer-V2-Windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Source smoke test
+        run: python main.py --smoke
+
+      - name: Build
+        run: pyinstaller lan-transfer-v2.spec --noconfirm --clean
+
+      - name: Smoke test (frozen app)
+        shell: bash
+        run: |
+          if [ -d "dist/Wlan-Flash-Transfer-V2.app" ]; then
+            "dist/Wlan-Flash-Transfer-V2.app/Contents/MacOS/Wlan-Flash-Transfer-V2" --smoke
+          else
+            "dist/Wlan-Flash-Transfer-V2.exe" --smoke
+          fi
+
+      - name: Package artifact (zip)
+        shell: bash
+        run: |
+          if [ -d "dist/Wlan-Flash-Transfer-V2.app" ]; then
+            cd dist && zip -r -y "Wlan-Flash-Transfer-V2-macOS.zip" "Wlan-Flash-Transfer-V2.app"
+          else
+            cd dist && 7z a "Wlan-Flash-Transfer-V2-Windows.zip" "Wlan-Flash-Transfer-V2.exe" || cp "Wlan-Flash-Transfer-V2.exe" "Wlan-Flash-Transfer-V2-Windows.exe"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: artifacts
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*

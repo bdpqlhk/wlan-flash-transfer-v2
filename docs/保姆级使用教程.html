@@ -139,8 +139,8 @@ footer{text-align:center;color:#9aa3af;font-size:13px;margin-top:10px}
   v1(tkinter)和 v2 可以共存,数据互不影响,喜欢哪个用哪个。</div>
   <table>
     <tr><th>你手上有</th><th>怎么打开</th></tr>
-    <tr><td>打包好的 <span class="badge mac">macOS</span> <kbd>LAN文件传输v2.app</kbd></td><td>双击,什么都不用装</td></tr>
-    <tr><td>打包好的 <span class="badge win">Windows</span> <kbd>LAN文件传输v2.exe</kbd></td><td>双击(单文件,可直接发给同事)</td></tr>
+    <tr><td>打包好的 <span class="badge mac">macOS</span> <kbd>Wlan-Flash-Transfer-V2.app</kbd></td><td>双击,什么都不用装</td></tr>
+    <tr><td>打包好的 <span class="badge win">Windows</span> <kbd>Wlan-Flash-Transfer-V2.exe</kbd></td><td>双击(单文件,可直接发给同事)</td></tr>
     <tr><td>源码</td><td><kbd>pip3 install -r requirements.txt</kbd> → <kbd>python3 main.py</kbd></td></tr>
   </table>
 </section>
@@ -185,7 +185,7 @@ python3 main.py                      # 启动</div></li>
     <div class="it"><span class="no">6</span><span><b>启动 / 停止服务</b>:蓝色主按钮启动;运行中变「停止服务」可点</span></div>
     <div class="it"><span class="no">7</span><span><b>共享文件表</b>:目录里已有的文件(名称/大小/修改时间),双击行直接打开,选中后可删除</span></div>
     <div class="it"><span class="no">8</span><span><b>二维码区</b>:启动后此处显示大二维码,手机对准扫即可</span></div>
-    <div class="it"><span class="no">9</span><span><b>服务日志</b>:底部 Dock,每条请求带时间戳;可从「视图」菜单开合</span></div>
+    <div class="it"><span class="no">9</span><span><b>服务日志</b>:右侧二维码下方,每条请求带时间戳</span></div>
     <div class="it"><span class="no">10</span><span><b>状态栏</b>:最新一条状态消息;有后台任务时右侧出现 ⏳</span></div>
   </div>
   <div class="hint">💡 复制链接 / 打开浏览器两个按钮在状态行右侧:一个复制地址发给同事,
@@ -307,7 +307,7 @@ python3 main.py                      # 启动</div></li>
   </details>
 
   <details><summary>macOS 打开 app 提示「已损坏」/ Windows 提示 SmartScreen</summary>
-    <div class="a">Mac:<kbd>xattr -dr com.apple.quarantine /path/to/LAN文件传输v2.app</kbd>;
+    <div class="a">Mac:<kbd>xattr -dr com.apple.quarantine /path/to/Wlan-Flash-Transfer-V2.app</kbd>;
     Windows:SmartScreen 点「更多信息 → 仍要运行」。均为未签名程序的常规提示。</div>
   </details>
 
@@ -346,13 +346,13 @@ python3 main.py --smoke                 # 输出 SMOKE_OK 即健康
 python3 main.py --screenshot s.png
 
 # 打包(自动对产物跑冒烟)
-bash build.sh                           # macOS → dist/LAN文件传输v2.app
-build_windows.bat                       # Windows → dist\LAN文件传输v2.exe(单文件)</div>
+bash build.sh                           # macOS → dist/Wlan-Flash-Transfer-V2.app
+build_windows.bat                       # Windows → dist\Wlan-Flash-Transfer-V2.exe(单文件)</div>
   <table>
     <tr><th>产物</th><th>说明</th></tr>
-    <tr><td><span class="badge mac">macOS</span> LAN文件传输v2.app</td><td>免安装,自带运行时;他机被 Gatekeeper 拦时
+    <tr><td><span class="badge mac">macOS</span> Wlan-Flash-Transfer-V2.app</td><td>免安装,自带运行时;他机被 Gatekeeper 拦时
       <kbd>xattr -dr com.apple.quarantine</kbd> 处理</td></tr>
-    <tr><td><span class="badge win">Windows</span> LAN文件传输v2.exe</td><td><b>单文件</b>,可直接发给局域网内其他 Windows 机器,免装 Python</td></tr>
+    <tr><td><span class="badge win">Windows</span> Wlan-Flash-Transfer-V2.exe</td><td><b>单文件</b>,可直接发给局域网内其他 Windows 机器,免装 Python</td></tr>
   </table>
   <div class="hint">💡 想深入架构(TransferServer 设计 / 线程模型 / 路径安全 / 打包矩阵)?
   见同目录 <kbd>docs/技术实现文档.md</kbd>;日常操作速查见 <kbd>docs/使用说明.md</kbd>。</div>

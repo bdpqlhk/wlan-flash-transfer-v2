@@ -1,5 +1,5 @@
 @echo off
-rem Windows 打包脚本: 产物 dist\LAN文件传输v2.exe (单文件)
+rem Windows 打包脚本: 产物 dist\Wlan-Flash-Transfer-V2.exe (单文件)
 rem 用法: 双击或在 cmd / PowerShell 里执行  build_windows.bat
 rem 前置: 已安装 Python 3.8+ (勾选 Add to PATH)
 setlocal
@@ -18,14 +18,14 @@ python -c "import PyInstaller" 2>nul || (
   python -m pip install pyinstaller || goto :fail
 )
 
-echo ^>^> 打包 LAN文件传输v2.exe ...
+echo ^>^> 打包 Wlan-Flash-Transfer-V2.exe ...
 python -m PyInstaller lan-transfer-v2.spec --noconfirm --clean || goto :fail
 
 echo ^>^> 冒烟验证打包产物 ...
-"dist\LAN文件传输v2.exe" --smoke || goto :fail
+"dist\Wlan-Flash-Transfer-V2.exe" --smoke || goto :fail
 
 echo.
-echo [OK] 完成: dist\LAN文件传输v2.exe
+echo [OK] 完成: dist\Wlan-Flash-Transfer-V2.exe
 exit /b 0
 
 :fail

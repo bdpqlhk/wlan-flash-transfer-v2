@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller 打包配置(跨平台):
-    macOS    → dist/LAN文件传输v2.app (onedir bundle)
-    Windows  → dist/LAN文件传输v2.exe (onefile 单文件)
+    macOS    → dist/Wlan-Flash-Transfer-V2.app (onedir bundle)
+    Windows  → dist/Wlan-Flash-Transfer-V2.exe (onefile 单文件)
 
 用法: pyinstaller lan-transfer-v2.spec --noconfirm --clean
 """
@@ -19,7 +19,7 @@ if importlib.util.find_spec("PyQt6") is None:
         "       网络慢可用镜像: -i https://pypi.tuna.tsinghua.edu.cn/simple")
 
 spec_dir = SPECPATH
-NAME = "LAN文件传输v2"
+NAME = "Wlan-Flash-Transfer-V2"
 
 
 def _icon(ext: str):
