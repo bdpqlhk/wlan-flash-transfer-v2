@@ -36,7 +36,10 @@ def _install_excepthook() -> None:
 
 def _smoke() -> int:
     """无头自检:起服务 -> HTTP 请求 /api/files 与主页 -> 停止。失败时输出诊断细节。"""
+    import faulthandler
     from lan_transfer.core.server import TransferServer
+
+    faulthandler.dump_traceback_later(12, exit=False)  # 12s 后转储全部线程栈,定位卡点
 
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
@@ -48,7 +51,7 @@ def _smoke() -> int:
     srv = TransferServer(share, free_port)
     srv.start()
 
-    deadline = time.time() + 20
+    deadline = time.time() + 25
     while time.time() < deadline:
         if srv.started.wait(0.2):
             break
@@ -73,12 +76,15 @@ def _smoke() -> int:
               f"failed_path={failed_path!r} last_exc={last_exc!r}")
 
     srv.stop()
+    faulthandler.cancel_dump_traceback_later()
+    diag = (f"  diagnostics: started={srv.started.is_set()} "
+            f"thread_alive={srv._thread.is_alive() if srv._thread else None} "
+            f"last_error={srv.last_error!r} port={free_port} share={share}")
     if ok:
         print("SMOKE_OK")
         return 0
     print("SMOKE_FAIL")
-    print(f"  diagnostics: started={srv.started.is_set()} "
-          f"last_error={srv.last_error!r} port={free_port} share={share}")
+    print(diag)
     return 1
 
 
