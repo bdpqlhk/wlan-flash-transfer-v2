@@ -45,6 +45,11 @@ def _smoke() -> int:
     from lan_transfer.core.server import TransferServer
     from lan_transfer.core.storage import Storage
 
+    # Windows CI 的 stdout 默认 cp1252, 输出中文检查名会 UnicodeEncodeError
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
     free_port = probe.getsockname()[1]
