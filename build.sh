@@ -24,6 +24,11 @@ echo ""
 echo ">> 冒烟验证打包产物 …"
 "$APP/Contents/MacOS/$NAME" --smoke
 
+echo ">> GUI 渲染自检(offscreen 构建主窗口) …"
+"$APP/Contents/MacOS/$NAME" --screenshot "${TMPDIR:-/tmp}/wft-gui-check.png" >/dev/null 2>&1
+test -s "${TMPDIR:-/tmp}/wft-gui-check.png" || { echo "[FAIL] GUI 构建失败"; exit 1; }
+echo "   GUI 渲染 OK"
+
 echo ""
 echo "✓ 完成: $APP"
 echo "  运行: open '$APP'"

@@ -18,8 +18,8 @@ from PyQt6.QtGui import (
     QAction, QColor, QDesktopServices, QFont, QIcon, QImage, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFormLayout, QFrame, QGroupBox,
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox,
+    QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame,
+    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox,
     QPlainTextEdit, QPushButton, QStatusBar, QSystemTrayIcon, QTabWidget,
     QVBoxLayout, QWidget,
 )
