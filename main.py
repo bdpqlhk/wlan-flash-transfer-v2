@@ -35,10 +35,15 @@ def _install_excepthook() -> None:
 
 
 def _smoke() -> int:
-    """无头自检:起服务 -> 鉴权/只读/页面断言 -> 停止。失败时输出诊断细节。"""
+    """无头自检:起服务 -> 鉴权/只读/页面断言 -> 停止。失败时输出诊断细节。
+
+    使用隔离的临时配置目录, 不读写用户真实配置。
+    """
     import faulthandler
+    import tempfile
     import urllib.error
     from lan_transfer.core.server import TransferServer
+    from lan_transfer.core.storage import Storage
 
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
@@ -47,7 +52,8 @@ def _smoke() -> int:
 
     share = Path(__file__).resolve().parent / "shared_files"
     share.mkdir(parents=True, exist_ok=True)
-    srv = TransferServer(share, free_port)
+    meta = Path(tempfile.mkdtemp(prefix="wft-smoke-"))
+    srv = TransferServer(share, free_port, storage=Storage(meta))
     token = srv.token
     srv.start()
 
@@ -73,16 +79,23 @@ def _smoke() -> int:
     if srv.last_error:
         checks.append((f"bind: {srv.last_error}", False))
     else:
+        # 默认关闭配对校验 → 直接可访问
         st, _ = req("/")
         checks.append(("index 200", st == 200))
         st, _ = req("/api/files")
-        checks.append(("files 无令牌 401", st == 401))
-        st, body = req("/api/files", tok=token)
-        checks.append(("files 带令牌 200", st == 200))
-        st, _ = req("/api/upload", method="POST", tok=token, data=b"x")
-        checks.append(("upload 空内容 400", st == 400))
+        checks.append(("files 免令牌 200", st == 200))
+        checks.append(("配对码为 4 位数字", srv.token.isdigit() and len(srv.token) == 4))
+        # 开启配对校验 → 无令牌 401 / 错码 401 / 正码 200
+        srv.storage.update_config(require_pairing=True)
+        st, _ = req("/api/files")
+        checks.append(("开启校验后无令牌 401", st == 401))
+        st, _ = req("/api/files", tok="0000")
+        checks.append(("错误配对码 401", st == 401))
+        st, body = req("/api/files", tok=srv.token)
+        checks.append(("正确配对码 200", st == 200))
+        # 只读模式 → 写操作 403
         srv.storage.update_config(mode="readonly")
-        st, _ = req("/api/upload", method="POST", tok=token, data=b"y")
+        st, _ = req("/api/upload", method="POST", tok=srv.token, data=b"y")
         checks.append(("readonly 上传 403", st == 403))
         srv.storage.update_config(mode="full")
         checks.append(("audit 非空", len(srv.storage.audit_records()) > 0))

@@ -195,19 +195,22 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
             return self.headers.get("X-Device", "")
 
         def _check_auth(self) -> bool:
-            """校验配对令牌(query 的 t 参数或 X-Token 头), 失败回 401 并审计。"""
+            """校验开关关闭时直接放行; 开启则校验 4 位配对码, 失败回 401 并审计。"""
+            cfg = state.storage.config
+            if not cfg.get("require_pairing"):
+                return True
             given = self.headers.get("X-Token", "")
             if not given:
                 q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
                 given = (q.get("t") or [""])[0]
-            token = state.storage.config.get("token", "")
+            token = cfg.get("token", "")
             if given and secrets.compare_digest(given, token):
                 state.storage.touch_device(
                     self._device_id(),
                     self.headers.get("X-Device-Name", ""),
                     self.client_address[0])
                 return True
-            self.send_json({"error": "需要配对令牌"}, 401)
+            self.send_json({"error": "需要配对码"}, 401)
             state.storage.append_audit(
                 {"action": "denied", "ip": self.client_address[0],
                  "path": self.path, "ok": False})

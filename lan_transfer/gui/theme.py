@@ -58,6 +58,7 @@ QPushButton {
 }
 QPushButton:hover { background-color: #2f3540; border-color: #4a5360; }
 QPushButton:pressed { background-color: #242932; }
+QPushButton:checked { background-color: #2e70ef; border-color: #2e70ef; color: #ffffff; font-weight: 600; }
 QPushButton:disabled { color: #5c6470; background-color: #20242b; }
 QPushButton#primary {
     background-color: #2e70ef; border-color: #2e70ef; color: #ffffff; font-weight: 600;

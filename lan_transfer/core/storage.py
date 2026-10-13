@@ -26,15 +26,15 @@ AUDIT_NAME = "audit.jsonl"
 _DEFAULT_CONFIG = {
     "port": 8765,
     "mode": "full",           # full: 上传/下载/删除/聊天; readonly: 仅下载
-    "require_pairing": True,  # True: 请求需带配对令牌
-    "token": "",              # 首次初始化自动生成
+    "require_pairing": False,  # True: 请求需带配对令牌(默认关闭, 不校验)
+    "token": "",              # 首次初始化自动生成(4 位数字)
     "share_dir": "",          # 上次使用的共享目录(记忆)
 }
 
 
 def generate_token() -> str:
-    """8 字符配对令牌(URL 安全, 如 Kx3_qT9z)。"""
-    return secrets.token_urlsafe(6)[:8]
+    """4 位数字配对码(如 0327), 手机端好输入。"""
+    return f"{secrets.randbelow(10000):04d}"
 
 
 class Storage:
@@ -55,7 +55,9 @@ class Storage:
                 cfg.update(json.loads(path.read_text(encoding="utf-8")))
             except Exception:
                 pass  # 损坏则回退默认
-        if not cfg.get("token"):
+        token = cfg.get("token", "")
+        # 无令牌, 或旧版 8 位字母码 → 统一迁移为 4 位数字配对码
+        if not token or not (token.isdigit() and len(token) == 4):
             cfg["token"] = generate_token()
             self._write_config(cfg)
         return cfg

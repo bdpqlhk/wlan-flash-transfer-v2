@@ -50,12 +50,23 @@ def _q(name):
 
 
 # ------------------------------------------------------------------ #
-def test_auth_required(server):
+def test_pairing_toggle_and_token(server):
+    """配对校验开关: 默认关闭; 开启后无令牌 401、错码 401、正码 200。"""
+    server.storage.update_config(require_pairing=True)
     st, _ = _req(server, "GET", "/api/files", token=False)
     assert st == 401
     st, _ = _req(server, "GET", "/api/files",
-                 headers={"X-Token": "wrong-token"}, token=False)
+                 headers={"X-Token": "9999"}, token=False)
     assert st == 401
+    st, _ = _req(server, "GET", "/api/files")   # 默认带正确令牌
+    assert st == 200
+    server.storage.update_config(require_pairing=False)
+    st, _ = _req(server, "GET", "/api/files", token=False)
+    assert st == 200
+
+
+def test_pairing_code_is_4_digits(server):
+    assert server.token.isdigit() and len(server.token) == 4
 
 
 def test_index_always_served(server):
@@ -136,8 +147,12 @@ def test_audit_written(server):
 
 
 def test_config_persisted(server, tmp_path):
-    server.storage.update_config(token="fixed-token", mode="readonly")
-    st, _ = _req(server, "GET", "/api/files", token=False)   # 旧令牌/无令牌 → 401
+    server.storage.update_config(token="fixed-token", mode="readonly",
+                                 require_pairing=True)
+    st, _ = _req(server, "GET", "/api/files", token=False)   # 无令牌 → 401
     assert st == 401
+    st, _ = _req(server, "GET", "/api/files",
+                 headers={"X-Token": "fixed-token"})
+    assert st == 200
     st, out = _req(server, "GET", "/api/config")
     assert json.loads(out)["readonly"] is True

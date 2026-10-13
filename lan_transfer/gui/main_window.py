@@ -149,25 +149,44 @@ class MainWindow(QMainWindow):
         dir_wrap.setLayout(dir_row)
         self._token_edit = QLineEdit(self._storage.config.get("token", ""))
         self._token_edit.setReadOnly(True)
+        self._token_edit.setFixedWidth(72)
+        self._token_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._token_edit.setFont(QFont("Menlo"))
+        self._pair_check = QCheckBox("开启配对校验(开启后网页需输入配对码)")
+        self._pair_check.setChecked(bool(cfg_cfg.get("require_pairing")))
+        self._pair_check.toggled.connect(self._on_pair_toggled)
         regen = QPushButton("重新生成")
-        regen.setToolTip("旧配对码立即失效, 已配对设备需重新扫码/输码")
+        regen.setToolTip("旧配对码立即失效, 已配对设备需重新输入")
         regen.clicked.connect(self._regen_token)
         token_row = QHBoxLayout()
-        token_row.addWidget(self._token_edit, 1)
+        token_row.addWidget(self._token_edit)
+        token_row.addWidget(self._pair_check)
+        token_row.addStretch(1)
         token_row.addWidget(regen)
         token_wrap = QWidget()
         token_wrap.setLayout(token_row)
-        self._mode_combo = QComboBox()
-        self._mode_combo.addItem("完整(上传/下载/聊天)", "full")
-        self._mode_combo.addItem("仅下载(只读)", "readonly")
-        self._mode_combo.setCurrentIndex(
-            1 if cfg_cfg.get("mode") == "readonly" else 0)
-        self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        self._token_edit.setEnabled(self._pair_check.isChecked())
+
+        # 权限模式: 一行互斥切换按钮
+        self._mode_full = QPushButton("完整(上传/下载/聊天)")
+        self._mode_ro = QPushButton("仅下载(只读)")
+        for b in (self._mode_full, self._mode_ro):
+            b.setCheckable(True)
+            b.clicked.connect(self._on_mode_button)
+        if cfg_cfg.get("mode") == "readonly":
+            self._mode_ro.setChecked(True)
+        else:
+            self._mode_full.setChecked(True)
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(self._mode_full)
+        mode_row.addWidget(self._mode_ro)
+        mode_row.addStretch(1)
+        mode_wrap = QWidget()
+        mode_wrap.setLayout(mode_row)
         form.addRow("端口:", self._port_edit)
         form.addRow("共享目录:", dir_wrap)
         form.addRow("访问令牌:", token_wrap)
-        form.addRow("权限模式:", self._mode_combo)
+        form.addRow("权限模式:", mode_wrap)
         form.addRow("可用空间:", self._space_lbl)
         left.addWidget(cfg)
 
@@ -400,16 +419,20 @@ class MainWindow(QMainWindow):
         self._token_edit.setText(new)
         self.show_status("✓ 已重新生成配对码, 旧配对码立即失效")
 
-    def _on_mode_changed(self, idx: int) -> None:
-        mode = "readonly" if idx == 1 else "full"
-        self._storage.update_config(mode=mode)
-        self.show_status(
-            "✓ 已切换为仅下载(只读)模式" if idx == 1
-            else "✓ 已切换为完整模式")
-        if self._server is not None and self._server.running:
-            self.show_status(
-                ("✓ 已切换为仅下载(只读)模式, 即时生效"
-                 if idx == 1 else "✓ 已切换为完整模式, 即时生效"))
+    def _on_mode_button(self) -> None:
+        readonly = self.sender() is self._mode_ro
+        self._mode_ro.setChecked(readonly)
+        self._mode_full.setChecked(not readonly)
+        self._storage.update_config(mode="readonly" if readonly else "full")
+        # 服务运行中切换即时生效(服务端实时读取配置)
+        self.show_status("✓ 已切换为仅下载(只读)模式" if readonly
+                         else "✓ 已切换为完整模式")
+
+    def _on_pair_toggled(self, checked: bool) -> None:
+        self._storage.update_config(require_pairing=checked)
+        self._token_edit.setEnabled(checked)
+        self.show_status("✓ 已开启配对校验, 网页访问需输入配对码" if checked
+                         else "✓ 已关闭配对校验, 无需令牌即可访问")
 
     # ------------------------------------------------------------------ #
     # 启停控制
