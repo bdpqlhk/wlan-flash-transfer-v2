@@ -35,11 +35,10 @@ def _install_excepthook() -> None:
 
 
 def _smoke() -> int:
-    """无头自检:起服务 -> HTTP 请求 /api/files 与主页 -> 停止。失败时输出诊断细节。"""
+    """无头自检:起服务 -> 鉴权/只读/页面断言 -> 停止。失败时输出诊断细节。"""
     import faulthandler
+    import urllib.error
     from lan_transfer.core.server import TransferServer
-
-    faulthandler.dump_traceback_later(12, exit=False)  # 12s 后转储全部线程栈,定位卡点
 
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
@@ -49,6 +48,7 @@ def _smoke() -> int:
     share = Path(__file__).resolve().parent / "shared_files"
     share.mkdir(parents=True, exist_ok=True)
     srv = TransferServer(share, free_port)
+    token = srv.token
     srv.start()
 
     deadline = time.time() + 25
@@ -56,27 +56,42 @@ def _smoke() -> int:
         if srv.started.wait(0.2):
             break
 
-    ok, last_exc, failed_path = False, None, None
-    if not srv.last_error:
-        attempts = 0
-        while time.time() < deadline and not ok:
-            attempts += 1
-            for path in ("/", "/api/files"):
-                try:
-                    with urllib.request.urlopen(
-                            f"http://127.0.0.1:{free_port}{path}", timeout=3) as r:
-                        ok = r.status == 200
-                except Exception as e:  # noqa: BLE001
-                    ok, last_exc, failed_path = False, e, path
-                if not ok:
-                    break
-            if not ok:
-                time.sleep(0.5)
-        print(f"  smoke: attempts={attempts} ok={ok} "
-              f"failed_path={failed_path!r} last_exc={last_exc!r}")
+    def req(path: str, method: str = "GET", tok: str | None = None,
+            data: bytes | None = None):
+        headers = {"X-Token": tok} if tok else {}
+        r = urllib.request.Request(f"http://127.0.0.1:{free_port}{path}",
+                                   data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(r, timeout=3) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+        except Exception as e:  # noqa: BLE001
+            return 0, repr(e).encode()
+
+    checks: list[tuple[str, bool]] = []
+    if srv.last_error:
+        checks.append((f"bind: {srv.last_error}", False))
+    else:
+        st, _ = req("/")
+        checks.append(("index 200", st == 200))
+        st, _ = req("/api/files")
+        checks.append(("files 无令牌 401", st == 401))
+        st, body = req("/api/files", tok=token)
+        checks.append(("files 带令牌 200", st == 200))
+        st, _ = req("/api/upload", method="POST", tok=token, data=b"x")
+        checks.append(("upload 空内容 400", st == 400))
+        srv.storage.update_config(mode="readonly")
+        st, _ = req("/api/upload", method="POST", tok=token, data=b"y")
+        checks.append(("readonly 上传 403", st == 403))
+        srv.storage.update_config(mode="full")
+        checks.append(("audit 非空", len(srv.storage.audit_records()) > 0))
 
     srv.stop()
     faulthandler.cancel_dump_traceback_later()
+    for name, passed in checks:
+        print(f"  [{'PASS' if passed else 'FAIL'}] {name}")
+    ok = bool(checks) and all(p for _, p in checks)
     diag = (f"  diagnostics: started={srv.started.is_set()} "
             f"thread_alive={srv._thread.is_alive() if srv._thread else None} "
             f"last_error={srv.last_error!r} port={free_port} share={share}")

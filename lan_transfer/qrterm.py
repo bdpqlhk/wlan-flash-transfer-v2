@@ -422,3 +422,37 @@ def print_qr(text: str, quiet_zone: int = 4, stream=None) -> None:
     else:
         out.write(render_ascii(matrix, quiet_zone) + "\n")
     out.flush()
+
+
+def qr_png_bytes(text: str, scale: int = 8, quiet_zone: int = 4) -> bytes:
+    """渲染二维码为 PNG 字节流(纯标准库, 供 HTTP 服务本地出图, 不经外部 API)。"""
+    import struct
+    import zlib
+
+    matrix = qr_matrix(text)
+    size = len(matrix)
+    n = size + quiet_zone * 2
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    def is_dark(my: int, mx: int) -> bool:
+        if not (quiet_zone <= my < quiet_zone + size):
+            return False
+        if not (quiet_zone <= mx < quiet_zone + size):
+            return False
+        return matrix[my - quiet_zone][mx - quiet_zone]
+
+    # 8-bit 灰度扫描线: 每行前缀 filter 0, 白=255 黑=0
+    raw = bytearray()
+    for my in range(n):
+        raw.append(0)
+        for mx in range(n):
+            raw.append(0 if is_dark(my, mx) else 255)
+
+    ihdr = struct.pack(">IIBBBBB", n, n, 8, 0, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(bytes(raw), 6))
+            + chunk(b"IEND", b""))

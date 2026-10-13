@@ -15,10 +15,10 @@ from pathlib import Path
 
 from PyQt6.QtCore import QMimeData, QObject, QPointF, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import (
-    QAction, QColor, QDesktopServices, QIcon, QImage, QPainter, QPixmap,
+    QAction, QColor, QDesktopServices, QFont, QIcon, QImage, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QFileDialog, QFormLayout, QFrame, QGroupBox,
+    QApplication, QComboBox, QFileDialog, QFormLayout, QFrame, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox,
     QPlainTextEdit, QPushButton, QStatusBar, QSystemTrayIcon, QTabWidget,
     QVBoxLayout, QWidget,
@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 from .. import __version__
 from ..core import format_size
 from ..core.server import TransferServer, get_lan_ip
+from ..core.storage import Storage, generate_token
 from ..qrterm import qr_matrix
 from .theme import DIM, GREEN, QSS, RED
 from .widgets import chip, make_mono, make_table, set_chip, set_rows
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(860, 560)
 
         self._server: TransferServer | None = None
+        self._storage = Storage()
         self._start_poll: QTimer | None = None
         self._bridge = _Bridge(self)
         self._bridge.log_line.connect(self._append_log)
@@ -134,8 +136,9 @@ class MainWindow(QMainWindow):
         # macOS 原生风格默认字段不拉伸(FieldsStayAtSizeHint),显式让字段占满行宽
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._port_edit = QLineEdit(str(8765))
-        self._dir_edit = QLineEdit(str(_default_share_dir()))
+        cfg_cfg = self._storage.config
+        self._port_edit = QLineEdit(str(cfg_cfg.get("port", 8765)))
+        self._dir_edit = QLineEdit(cfg_cfg.get("share_dir") or str(_default_share_dir()))
         browse = QPushButton("浏览…")
         browse.clicked.connect(self._browse_dir)
         dir_row = QHBoxLayout()
@@ -144,8 +147,27 @@ class MainWindow(QMainWindow):
         self._space_lbl = QLabel("—")
         dir_wrap = QWidget()
         dir_wrap.setLayout(dir_row)
+        self._token_edit = QLineEdit(self._storage.config.get("token", ""))
+        self._token_edit.setReadOnly(True)
+        self._token_edit.setFont(QFont("Menlo"))
+        regen = QPushButton("重新生成")
+        regen.setToolTip("旧配对码立即失效, 已配对设备需重新扫码/输码")
+        regen.clicked.connect(self._regen_token)
+        token_row = QHBoxLayout()
+        token_row.addWidget(self._token_edit, 1)
+        token_row.addWidget(regen)
+        token_wrap = QWidget()
+        token_wrap.setLayout(token_row)
+        self._mode_combo = QComboBox()
+        self._mode_combo.addItem("完整(上传/下载/聊天)", "full")
+        self._mode_combo.addItem("仅下载(只读)", "readonly")
+        self._mode_combo.setCurrentIndex(
+            1 if cfg_cfg.get("mode") == "readonly" else 0)
+        self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         form.addRow("端口:", self._port_edit)
         form.addRow("共享目录:", dir_wrap)
+        form.addRow("访问令牌:", token_wrap)
+        form.addRow("权限模式:", self._mode_combo)
         form.addRow("可用空间:", self._space_lbl)
         left.addWidget(cfg)
 
@@ -370,6 +392,26 @@ class MainWindow(QMainWindow):
             f"网页端零依赖任何客户端;桌面端负责启停服务、选目录、看日志与扫码。")
 
     # ------------------------------------------------------------------ #
+    # 配对令牌 / 权限模式
+    # ------------------------------------------------------------------ #
+    def _regen_token(self) -> None:
+        new = generate_token()
+        self._storage.update_config(token=new)
+        self._token_edit.setText(new)
+        self.show_status("✓ 已重新生成配对码, 旧配对码立即失效")
+
+    def _on_mode_changed(self, idx: int) -> None:
+        mode = "readonly" if idx == 1 else "full"
+        self._storage.update_config(mode=mode)
+        self.show_status(
+            "✓ 已切换为仅下载(只读)模式" if idx == 1
+            else "✓ 已切换为完整模式")
+        if self._server is not None and self._server.running:
+            self.show_status(
+                ("✓ 已切换为仅下载(只读)模式, 即时生效"
+                 if idx == 1 else "✓ 已切换为完整模式, 即时生效"))
+
+    # ------------------------------------------------------------------ #
     # 启停控制
     # ------------------------------------------------------------------ #
     def start_server(self) -> None:
@@ -389,8 +431,9 @@ class MainWindow(QMainWindow):
         except OSError as e:
             QMessageBox.critical(self, "错误", f"共享目录不可用:\n{e}")
             return
+        self._storage.update_config(port=port, share_dir=str(upload_dir))
 
-        srv = TransferServer(upload_dir, port)
+        srv = TransferServer(upload_dir, port, storage=self._storage)
         srv.on_log = self._bridge.log_line.emit
         srv.on_chat = self._bridge.chat_msg.emit
         srv.start()

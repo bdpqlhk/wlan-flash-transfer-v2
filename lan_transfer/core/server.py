@@ -19,6 +19,8 @@ from __future__ import annotations
 import http.server
 import json
 import mimetypes
+import os
+import secrets
 import shutil
 import socket
 import socketserver
@@ -27,6 +29,8 @@ import time
 import urllib.parse
 from pathlib import Path
 
+from .storage import Storage
+from ..qrterm import qr_png_bytes
 from .webui import HTML_PAGE
 
 CHUNK = 1024 * 1024
@@ -81,10 +85,12 @@ class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 class TransferServer:
     """局域网文件共享 + 聊天服务(可实例化, 线程安全回调)。"""
 
-    def __init__(self, upload_dir: Path, port: int, bind: str = "0.0.0.0"):
+    def __init__(self, upload_dir: Path, port: int, bind: str = "0.0.0.0",
+                 storage: Storage | None = None):
         self.upload_dir = Path(upload_dir)
         self.port = port
         self.bind = bind
+        self.storage = storage or Storage()
         self.on_log = None      # callable(str)  请求日志
         self.on_chat = None     # callable(dict) 新消息
         self.last_error = ""
@@ -93,6 +99,15 @@ class TransferServer:
         self._chat_lock = threading.Lock()
         self._httpd: _ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+
+    @property
+    def token(self) -> str:
+        """配对令牌(实时读配置, 重新生成后立即生效)。"""
+        return self.storage.config.get("token", "")
+
+    @property
+    def readonly(self) -> bool:
+        return self.storage.config.get("mode") == "readonly"
 
     # ---------------- 对外 ----------------
     @property
@@ -175,6 +190,41 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
             except Exception:
                 pass
 
+        # ---- 鉴权 / 设备 / 审计 ----
+        def _device_id(self) -> str:
+            return self.headers.get("X-Device", "")
+
+        def _check_auth(self) -> bool:
+            """校验配对令牌(query 的 t 参数或 X-Token 头), 失败回 401 并审计。"""
+            given = self.headers.get("X-Token", "")
+            if not given:
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                given = (q.get("t") or [""])[0]
+            token = state.storage.config.get("token", "")
+            if given and secrets.compare_digest(given, token):
+                state.storage.touch_device(
+                    self._device_id(),
+                    self.headers.get("X-Device-Name", ""),
+                    self.client_address[0])
+                return True
+            self.send_json({"error": "需要配对令牌"}, 401)
+            state.storage.append_audit(
+                {"action": "denied", "ip": self.client_address[0],
+                 "path": self.path, "ok": False})
+            return False
+
+        def _audit(self, action: str, **kw) -> None:
+            state.storage.append_audit(
+                {"action": action, "ip": self.client_address[0],
+                 "device": self._device_id(), **kw})
+
+        def _readonly(self) -> bool:
+            """只读模式时回 403。"""
+            if state.readonly:
+                self.send_json({"error": "只读模式, 不允许该操作"}, 403)
+                return True
+            return False
+
         # ---- 响应工具 ----
         def send_json(self, data, status=200):
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -189,7 +239,9 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
 
         def safe_filename(self, name):
             name = urllib.parse.unquote(name)
-            name = name.replace("\\", "/").split("/")[-1]  # 防路径穿越
+            name = name.replace("\\", "/")
+            if "/" in name:
+                return None  # 带 URL 编码分隔符 = 疑似路径穿越, 一律拒绝
             if not name or name in (".", ".."):
                 return None
             return name
@@ -204,7 +256,26 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
         def do_GET(self):
             path = urllib.parse.unquote(urllib.parse.urlparse(self.path).path)
             if path in ("/", "/index.html"):
-                self._serve_index()
+                self._serve_index()      # 页面始终可开, 数据接口由令牌保护
+                return
+            if not self._check_auth():
+                return
+            if path == "/api/config":
+                self.send_json({
+                    "app": "lan-transfer",
+                    "mode": state.storage.config.get("mode", "full"),
+                    "readonly": state.readonly,
+                    "version": 2,
+                })
+            elif path == "/qr":
+                # 本地渲染二维码(含配对令牌), 不经任何外部 QR API
+                url = f"http://{get_lan_ip()}:{self.server.server_port}/?t={state.token}"
+                body = qr_png_bytes(url)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", len(body))
+                self.end_headers()
+                self.wfile.write(body)
             elif path == "/api/files":
                 self._api_files()
             elif path == "/api/chat":
@@ -217,7 +288,9 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
         def _serve_index(self):
             html = (HTML_PAGE
                     .replace("__LAN_IP__", get_lan_ip())
-                    .replace("__PORT__", str(self.server.server_port)))
+                    .replace("__PORT__", str(self.server.server_port))
+                    .replace("__TOKEN_Q__",
+                             "?t=" + urllib.parse.quote(state.token)))
             body = html.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -257,6 +330,7 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
                     f"attachment; filename=\"{quoted}\"; filename*=UTF-8''{quoted}")
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
+                self._audit("download", path=name, size=size, ok=True)
                 with open(filepath, "rb") as f:
                     while True:
                         chunk = f.read(CHUNK)
@@ -271,6 +345,10 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
         # ---- POST ----
         def do_POST(self):
             path = urllib.parse.unquote(urllib.parse.urlparse(self.path).path)
+            if not self._check_auth():
+                return
+            if path in ("/api/upload", "/api/chat") and self._readonly():
+                return
             if path == "/api/upload":
                 self._api_upload()
             elif path == "/api/chat":
@@ -313,6 +391,7 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
                             break
                         f.write(chunk)
                         written += len(chunk)
+                self._audit("upload", path=name, size=written, ok=True)
                 self.send_json({"ok": True, "name": name, "size": written})
             except Exception as e:  # noqa: BLE001
                 if filepath.exists():
@@ -350,12 +429,17 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
                         state.on_chat(msg)
                     except Exception:
                         pass
+                self._audit("chat", ok=True)
                 self.send_json({"ok": True, "id": msg["id"]})
             except Exception as e:  # noqa: BLE001
                 self.send_error_json(f"发送失败: {e}", 500)
 
         # ---- DELETE ----
         def do_DELETE(self):
+            if not self._check_auth():
+                return
+            if self._readonly():
+                return
             path = urllib.parse.unquote(urllib.parse.urlparse(self.path).path)
             if path.startswith("/api/delete/"):
                 name = self.safe_filename(path[len("/api/delete/"):])
@@ -365,6 +449,7 @@ def _make_handler(state: TransferServer) -> type[http.server.BaseHTTPRequestHand
                     return
                 try:
                     filepath.unlink()
+                    self._audit("delete", path=name, ok=True)
                     self.send_json({"ok": True})
                 except Exception as e:  # noqa: BLE001
                     self.send_error_json(f"删除失败: {e}", 500)

@@ -151,6 +151,15 @@ body {
 .chat-input:focus { border-color: var(--accent); }
 .chat-input::placeholder { color: var(--text3); }
 @media (max-width: 640px) { body { padding: 8px; } .container { gap: 10px; } .card { padding: 14px; } .header h1 { font-size: 18px; } .top-bar { flex-direction: column; align-items: stretch; } .url-actions { justify-content: center; } .stats-row { gap: 8px; } .stat-item { padding: 10px 12px; } .stat-value { font-size: 15px; } .dropzone { padding: 28px 16px; } .dz-icon { width: 44px; height: 44px; font-size: 22px; } .file-row { flex-wrap: wrap; } .file-thumb { width: 36px; height: 36px; font-size: 18px; } .file-btns { width: 100%; justify-content: flex-end; margin-top: 4px; } .sort-group { width: 100%; justify-content: center; } .toast-container { left: 10px; right: 10px; max-width: none; } .chat-nickname input { width: 80px; } }
+.pair-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; }
+.pair-overlay.show { display: flex; }
+.pair-box { background: #111620; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 30px 34px; text-align: center; max-width: 320px; width: 88%; }
+.pair-box h3 { color: #e1e4ed; font-size: 18px; margin-bottom: 6px; }
+.pair-box p { color: #9ca3b8; font-size: 13px; margin-bottom: 16px; }
+.pair-box input { width: 100%; padding: 12px; font-size: 20px; text-align: center; letter-spacing: 4px; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(255,255,255,0.05); color: #4f8af7; outline: none; box-sizing: border-box; margin-bottom: 14px; }
+.pair-box input:focus { border-color: #4f8af7; }
+.pair-box button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #4f8af7, #7c6ff7); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+.ro-banner { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(245,166,35,0.12); border: 1px solid rgba(245,166,35,0.35); color: #f5a623; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -218,8 +227,37 @@ body {
 <div class="qr-modal" id="qrModal" onclick="if(event.target===this)hideQR()"><div class="qr-modal-inner"><img id="qrImage" src="" alt="QR Code"><p>扫描二维码在手机上打开</p><div class="url-display-qr" id="qrUrl"></div></div></div>
 <div class="dialog-overlay" id="dialogOverlay"><div class="dialog-box"><h4 id="dialogTitle">确认操作</h4><p id="dialogMsg"></p><div class="dialog-actions"><button class="btn btn-ghost" onclick="closeDialog()">取消</button><button class="btn btn-danger" id="dialogConfirm">确认</button></div></div></div>
 <div class="toast-container" id="toastContainer"></div>
+<div class="pair-overlay" id="pairOverlay"><div class="pair-box">
+    <h3>需要配对</h3>
+    <p>输入电脑「访问令牌」完成配对</p>
+    <input type="text" id="pairInput" maxlength="16" placeholder="配对码" autocomplete="off">
+    <button onclick="submitPairing()">配 对</button>
+</div></div>
 <script>
-const SHARE_URL = "http://__LAN_IP__:__PORT__";
+// —— 访问令牌与设备标识(必须最先执行) ——
+const QS = new URLSearchParams(location.search);
+if (QS.get("t")) { localStorage.setItem("wft_token", QS.get("t")); history.replaceState(null, "", location.pathname); }
+const TOKEN = localStorage.getItem("wft_token") || "";
+const DEVICE = localStorage.getItem("wft_device") || (() => { const d = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); localStorage.setItem("wft_device", d); return d; })();
+function withT(u) { return u + (u.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(TOKEN); }
+
+// 统一注入令牌: fetch 加请求头, 相对地址与 window.open 追加 ?t=
+const _fetch = window.fetch;
+window.fetch = function (input, init) {
+    init = init ? Object.assign({}, init) : {};
+    init.headers = Object.assign({}, init.headers || {}, { "X-Token": TOKEN, "X-Device": DEVICE });
+    const p = _fetch.call(this, input, init);
+    p.then(res => { if (res.status === 401) showPairing(); }).catch(() => {});
+    return p;
+};
+const _xhrOpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    return _xhrOpen.call(this, method, withT(String(url)), ...rest);
+};
+const _winOpen = window.open;
+window.open = function (u, ...rest) { return _winOpen.call(this, u ? withT(String(u)) : u, ...rest); };
+
+const SHARE_URL = "http://__LAN_IP__:__PORT__/__TOKEN_Q__";
 const LAN_IP = "__LAN_IP__";
 const PORT = __PORT__;
 document.getElementById("urlInput").value = SHARE_URL;
@@ -317,13 +355,13 @@ function renderFileList() {
     el.innerHTML = sorted.map(f => {
         const isImg = isImage(f.name);
         return `<div class="file-row">
-            <div class="file-thumb">${isImg?'<img src="/api/download/'+encodeURIComponent(f.name)+'" loading="lazy" onerror="this.style.display=\'none\'" />':''}<span class="icon-overlay">${iconFor(f.name)}</span></div>
+            <div class="file-thumb">${isImg?'<img src="/api/download/'+encodeURIComponent(f.name)+'?t='+encodeURIComponent(TOKEN)+'" loading="lazy" onerror="this.style.display=\'none\'" />':''}<span class="icon-overlay">${iconFor(f.name)}</span></div>
             <div class="file-info">
                 <div class="fname" title="${escHtml(f.name)}" onclick="downloadFile('${escAttr(f.name)}')">${escHtml(f.name)}</div>
                 <div class="fmeta"><span>${fmtSize(f.size)}</span><span>${fmtTime(f.modified)}</span>${isImg?'<span style="color:var(--warning);font-size:10px">预览</span>':''}</div>
             </div>
             <div class="file-btns">
-                <a class="btn btn-primary btn-sm" href="/api/download/${encodeURIComponent(f.name)}" download><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载</a>
+                <a class="btn btn-primary btn-sm" href="/api/download/${encodeURIComponent(f.name)}?t=${encodeURIComponent(TOKEN)}" download><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载</a>
                 <button class="btn btn-danger btn-sm" onclick="confirmDelete('${escAttr(f.name)}')" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
             </div>
         </div>`;
@@ -332,7 +370,33 @@ function renderFileList() {
 
 function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function escAttr(s) { return s.replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
-function downloadFile(name) { window.open("/api/download/" + encodeURIComponent(name), "_blank"); }
+function downloadFile(name) { window.open(withT("/api/download/" + encodeURIComponent(name)), "_blank"); }
+
+// —— 配对与只读模式 ——
+function showPairing() { document.getElementById("pairOverlay").classList.add("show"); setTimeout(() => document.getElementById("pairInput").focus(), 120); }
+function submitPairing() {
+    const v = document.getElementById("pairInput").value.trim();
+    if (!v) return;
+    localStorage.setItem("wft_token", v);
+    location.reload();
+}
+async function loadConfig() {
+    try {
+        const res = await fetch("/api/config");
+        if (res.status === 401) { showPairing(); return; }
+        const cfg = await res.json();
+        if (cfg.readonly) {
+            document.getElementById("dropzone").style.display = "none";
+            document.querySelector(".upload-section").style.display = "none";
+            document.querySelector(".chat-input-area").style.display = "none";
+            const banner = document.createElement("div");
+            banner.className = "ro-banner";
+            banner.innerHTML = "&#128274; 只读模式 —— 该服务当前仅允许下载, 上传与聊天已停用";
+            const fl = document.getElementById("fileList");
+            fl.parentNode.insertBefore(banner, fl.parentNode.firstChild);
+        }
+    } catch (e) { console.error(e); }
+}
 
 let pendingDelete = null;
 function confirmDelete(name) {
@@ -410,6 +474,7 @@ async function uploadFile(file, id) {
             }
         };
         xhr.onload = () => {
+            if (xhr.status === 401) { showPairing(); stat.textContent = "需要配对"; return; }
             if (xhr.status === 200) {
                 bar.classList.add("done");
                 bar.style.width = "100%";
@@ -439,13 +504,13 @@ function copyUrl() {
 
 function showQR() {
     const url = SHARE_URL;
-    const qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&color=000000&bgcolor=ffffff&data=" + encodeURIComponent(url);
-    document.getElementById("qrImage").src = qrSrc;
+    document.getElementById("qrImage").src = withT("/qr");
     document.getElementById("qrUrl").textContent = url;
     document.getElementById("qrModal").classList.add("show");
 }
 function hideQR() { document.getElementById("qrModal").classList.remove("show"); }
 document.addEventListener("keydown", e => { if (e.key === "Escape") hideQR(); });
+loadConfig();
 loadFiles();
 loadChatMessages();
 setInterval(loadChatMessages, 3000);
