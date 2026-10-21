@@ -37,9 +37,59 @@ a = Analysis(
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    # 本应用只用 QtCore/QtGui/QtWidgets(见 main.py / gui/), 其余一律排除
+    excludes=[
+        # 标准库中 GUI 应用用不到的
+        "tkinter", "unittest", "pydoc_data", "test", "xmlrpc", "ftplib",
+        "setuptools", "pip", "wheel", "pkg_resources",
+        # PyQt6 未使用模块, 防 hook 顺带收集
+        "PyQt6.QtNetwork", "PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtQuickWidgets",
+        "PyQt6.QtMultimedia", "PyQt6.QtMultimediaWidgets", "PyQt6.QtPdf",
+        "PyQt6.QtPdfWidgets", "PyQt6.QtSvg", "PyQt6.QtSvgWidgets",
+        "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets", "PyQt6.QtWebChannel",
+        "PyQt6.QtWebSockets", "PyQt6.QtBluetooth", "PyQt6.QtNfc",
+        "PyQt6.QtSerialPort", "PyQt6.QtSensors", "PyQt6.QtPositioning",
+        "PyQt6.QtCharts", "PyQt6.QtDataVisualization", "PyQt6.QtDesigner",
+        "PyQt6.QtTest", "PyQt6.QtSql", "PyQt6.QtXml", "PyQt6.QtDBus",
+        "PyQt6.QtOpenGL", "PyQt6.QtOpenGLWidgets",
+    ],
     noarchive=False,
 )
+
+# ---- 瘦身: 剔除未使用的 Qt 动态库/插件/翻译 ----
+# 只保留 Core/Gui/Widgets 及其必要插件(cocoa/windows 平台插件、样式、图标格式)。
+# 若误删了真正需要的库, 产物会启动报错或渲染异常 —— build.sh 的 --smoke
+# 与 GUI 渲染自检会在打包后立刻暴露问题。
+_QT_DROP = (
+    # Qt 动态库框架(PyInstaller 内路径形如 .../lib/QtNetwork.framework/..., 按框架名匹配)
+    "qtnetwork", "qtpdf", "qpdf", "qtdbus", "qtqml", "qtquick", "qtwebengine",
+    "qtwebchannel", "qtwebsockets", "qtbluetooth", "qtnfc", "qtserialport",
+    "qttest", "qtsql", "qtxml", "qtdesigner", "qtcharts", "qtdatavisualization",
+    "qtvirtualkeyboard", "qtremoteobjects", "qtstatemachine", "qtscxml",
+    "63d",
+    # 模块名兜底(如 PyQt6/QtNetwork.abi3.so)
+    "qt6network", "qt6qml", "qt6quick", "qt6pdf", "qt6multimedia", "qt6sensors",
+    "qt6positioning", "qt6websockets", "qt6webchannel", "qt6bluetooth", "qt6nfc",
+    "qt6serialport", "qt6test", "qt6sql", "qt6xml", "qt6designer", "qt6charts",
+    "qt6datavisualization", "qt6virtualkeyboard", "qt6remoteobjects",
+    "qt6statemachine", "qt6scxml", "qt6networkinformation", "qt6tls",
+    # 用不到的插件目录
+    "qmltooling", "sceneparsers", "geometryloaders", "networkinformation",
+    "webengine", "webview", "multimedia", "sensors", "sensorgestures",
+    "position", "canbus", "gamepad", "texttospeech",
+    # 翻译(.qm)全量剔除 —— 界面文案为代码内写死中文
+    "translations",
+)
+
+
+def _keep(entry) -> bool:
+    name = entry[0].replace("\\", "/").lower()
+    return not any(t in name for t in _QT_DROP)
+
+
+a.binaries = [b for b in a.binaries if _keep(b)]
+a.datas = [d for d in a.datas if _keep(d)]
+
 pyz = PYZ(a.pure)
 
 if sys.platform == "win32":
@@ -67,7 +117,7 @@ else:
         name=NAME,
         debug=False,
         bootloader_ignore_signals=False,
-        strip=False,
+        strip=True,   # macOS 下剥符号表, 进一步减小体积(Windows 分支不用 strip)
         upx=False,
         console=False,
         icon=ICON,
@@ -76,7 +126,7 @@ else:
         exe,
         a.binaries,
         a.datas,
-        strip=False,
+        strip=True,
         upx=False,
         name=NAME,
     )
