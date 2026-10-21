@@ -591,7 +591,7 @@ fileInput.addEventListener("change", () => handleFiles(fileInput.files));
 dropzone.addEventListener("drop", e => { e.preventDefault(); dropzone.classList.remove("drag-over"); handleFiles(e.dataTransfer.files); });
 
 document.addEventListener("paste", e => {
-    const items = e.clipboardData?.items;
+    const items = e.clipboardData && e.clipboardData.items;   // 兼容旧内核: 不用 ?.
     if (!items) return;
     const files = [];
     for (const item of items) { if (item.kind === "file") files.push(item.getAsFile()); }
@@ -869,7 +869,9 @@ async function sendChatMessage() {
 }
 
 enforceLayout();
-mq.addEventListener("change", enforceLayout);
+// 兼容旧 Safari(≤13): MediaQueryList 只有 addListener
+if (typeof mq.addEventListener === "function") mq.addEventListener("change", enforceLayout);
+else if (typeof mq.addListener === "function") mq.addListener(enforceLayout);
 
 loadFiles();
 loadChatMessages();
