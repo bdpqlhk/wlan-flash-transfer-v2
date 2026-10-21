@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wlan-Flash-Transfer 网页端 · 保姆级使用教程</title>
+<style>
+:root{
+  --bg:#f5f7fa; --card:#ffffff; --line:#e5e9f0; --text:#1f2430; --text2:#6b7280;
+  --blue:#2e70ef; --blue-bg:#eef4ff; --green:#16a34a; --green-bg:#ecfdf3;
+  --orange:#d97706; --red:#dc2626; --red-bg:#fef2f2; --code-bg:#0f172a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  font-size:16px;line-height:1.75}
+.wrap{max-width:880px;margin:0 auto;padding:28px 20px 80px}
+.hero{background:linear-gradient(135deg,#171a1f 30%,#2e70ef);border-radius:18px;
+  color:#fff;padding:34px 34px 28px;margin-bottom:26px}
+.hero h1{font-size:29px;letter-spacing:.5px}
+.hero p{opacity:.92;margin-top:8px;font-size:15px}
+.hero .tags{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.hero .tag{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);
+  border-radius:999px;padding:3px 12px;font-size:13px}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:18px 22px;margin-bottom:30px}
+.toc h3{font-size:15px;color:var(--text2);margin-bottom:10px}
+.toc ol{padding-left:20px;columns:2;column-gap:30px}
+.toc li{margin:4px 0;break-inside:avoid}
+.toc a{color:var(--text);text-decoration:none;border-bottom:1px dashed #c9d2e0}
+.toc a:hover{color:var(--blue);border-color:var(--blue)}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:26px 30px;margin-bottom:26px}
+h2{font-size:22px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--blue-bg)}
+h2 .no{display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:9px;background:var(--blue);color:#fff;
+  font-size:16px;margin-right:10px;vertical-align:-6px}
+h3{font-size:17px;margin:22px 0 10px}
+p{margin:8px 0}
+b{color:#0f3d99}
+ul,ol{margin:8px 0 8px 22px}
+li{margin:5px 0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:#f1f5fb;white-space:nowrap}
+kbd{background:#eef1f6;border:1px solid #d5dbe4;border-bottom-width:2px;border-radius:6px;
+  padding:1px 7px;font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace}
+code{background:#eef1f6;border-radius:5px;padding:1px 7px;font-size:14px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;color:#0f3a8c}
+.tip,.warn{border-radius:10px;padding:12px 16px;margin:12px 0;font-size:14.5px;
+  border-left:4px solid var(--blue)}
+.tip{background:var(--blue-bg)}
+.warn{background:var(--red-bg);border-left-color:var(--red)}
+.tip b{color:var(--blue)}
+.warn b{color:var(--red)}
+.step{display:flex;gap:14px;margin:14px 0}
+.step .n{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;margin-top:2px}
+.step .b{flex:1}
+.step .b h4{font-size:15.5px;margin-bottom:3px}
+.step .b p{margin:2px 0;color:#374151;font-size:14.5px}
+.schema{background:var(--code-bg);color:#dbe4f0;border-radius:12px;padding:18px 20px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.9;
+  overflow-x:auto;margin:12px 0;white-space:pre}
+.schema .hl{color:#7fb0ff}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.dot.b{background:linear-gradient(135deg,#4f8af7,#7c6ff7)}
+.dot.g{background:#8a919e}
+.dot.gr{background:#34c97c}
+figure{margin:16px 0;text-align:center}
+figure img{max-width:100%;border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 4px 20px rgba(15,23,42,.10);cursor:zoom-in}
+figcaption{margin-top:8px;font-size:13.5px;color:var(--text2)}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:14px 0;font-size:14.5px}
+.legend .it{display:flex;gap:9px;align-items:flex-start;background:#fafbfd;
+  border:1px solid var(--line);border-radius:9px;padding:8px 12px}
+.legend .no{flex-shrink:0;width:21px;height:21px;border-radius:50%;background:var(--orange);
+  color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:2px}
+details{border:1px solid var(--line);border-radius:10px;margin:10px 0;overflow:hidden}
+summary{cursor:pointer;padding:13px 18px;font-weight:600;background:#fafbfd;list-style:none;display:flex;align-items:center;gap:10px}
+summary::before{content:"?";flex-shrink:0;width:22px;height:22px;border-radius:50%;
+  background:var(--blue-bg);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:13px}
+details[open] summary::before{content:"!"}
+details .a{padding:12px 18px 16px;border-top:1px solid var(--line);color:#374151;font-size:15px}
+/* 配对弹层示意(CSS 仿绘) */
+.mockpair{background:#3b3f46;border-radius:12px;padding:34px 20px;margin:14px auto;
+  max-width:420px;display:flex;align-items:center;justify-content:center}
+.mockpair .pbox{background:#111620;border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  padding:26px 30px;text-align:center;max-width:300px;width:100%}
+.mockpair .pbox h4{color:#e1e4ed;font-size:17px;margin-bottom:6px}
+.mockpair .pbox p{color:#9ca3b8;font-size:13px;margin-bottom:14px}
+.mockpair .pbox input{width:100%;padding:11px;font-size:19px;text-align:center;letter-spacing:5px;
+  border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);
+  color:#4f8af7;outline:none;box-sizing:border-box;margin-bottom:12px}
+.mockpair .pbox button{width:100%;padding:10px;border:none;border-radius:10px;
+  background:var(--blue);color:#fff;font-size:14px;font-weight:600}
+.mockpair .cap{font-size:12.5px;color:var(--text2);text-align:center;margin-top:8px}
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99;
+  align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.show{display:flex}
+.lightbox img{max-width:94vw;max-height:94vh;border-radius:10px}
+footer{text-align:center;color:var(--text2);font-size:13px;margin-top:34px}
+@media print{.toc,.lightbox{display:none}section{break-inside:avoid;border:none}body{background:#fff}}
+@media (max-width:640px){.toc ol{columns:1}.legend{grid-template-columns:1fr}section{padding:20px 18px}.hero{padding:26px 22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>⚡ Wlan-Flash-Transfer 网页端 · 保姆级使用教程</h1>
+  <p>适用网页端「布局E」新界面 —— 桌面等宽分栏 / 手机悬浮聊天 / 文件分页 /
+  一键分享 / emoji 头像聊天室。手机、平板、电脑通用,无需安装任何东西。</p>
+  <div class="tags">
+    <span class="tag">📱 手机 · 平板 · 电脑</span>
+    <span class="tag">🗂 文件分页 · 每页 8 个</span>
+    <span class="tag">💬 聊天实时互通</span>
+    <span class="tag">🔗 分享链接自带令牌</span>
+  </div>
+</div>
+
+<nav class="toc">
+  <h3>目录</h3>
+  <ol>
+    <li><a href="#s1">进入网页端:三种方式</a></li>
+    <li><a href="#s2">页面总览:电脑和手机长什么样</a></li>
+    <li><a href="#s3">上传文件:点选 / 拖拽 / 粘贴</a></li>
+    <li><a href="#s4">下载与预览</a></li>
+    <li><a href="#s5">分享文件(绿按钮)</a></li>
+    <li><a href="#s6">删除文件(灰按钮)</a></li>
+    <li><a href="#s7">文件列表:排序 / 分页 / 刷新</a></li>
+    <li><a href="#s8">聊天室:昵称 / 头像 / 发消息</a></li>
+    <li><a href="#s9">手机上的聊天:悬浮球与底部面板</a></li>
+    <li><a href="#s10">复制链接与扫码</a></li>
+    <li><a href="#s11">配对码与只读模式(如已开启)</a></li>
+    <li><a href="#s12">常见问题急救箱</a></li>
+  </ol>
+</nav>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <h2><span class="no">1</span>进入网页端:三种方式</h2>
+  <p>网页端由电脑上的桌面应用提供服务。共享方先在应用里点 <b>「启动服务」</b>,
+  状态徽标变为绿色 <b>● 运行中</b> 后,窗口上会显示访问地址:</p>
+  <figure>
+    <img src="images/web-app-gui.png" alt="桌面应用主界面" onclick="zoom(this)">
+    <figcaption>桌面应用:点「启动服务」→ 复制链接发给同事,或让大家扫二维码;「打开浏览器」在本机直接打开</figcaption>
+  </figure>
+  <div class="step"><div class="n">1</div><div class="b"><h4>扫码(推荐手机用户)</h4>
+    <p>手机相机对准应用窗口里的二维码扫一下,直达页面。</p></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><h4>输地址</h4>
+    <p>浏览器输入应用显示的地址,如 <code>http://192.168.1.20:8765</code>(IP 和端口以应用窗口为准)。</p></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><h4>点按钮(本机)</h4>
+    <p>在电脑本机的话,直接点应用里的「打开浏览器」按钮。</p></div></div>
+  <div class="warn"><b>前提:</b>手机/电脑必须和共享方连着<b>同一个局域网</b>(同一个 Wi-Fi 或同一网线网络),否则地址打不开。</div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <h2><span class="no">2</span>页面总览:电脑和手机长什么样</h2>
+  <p>网页按屏幕宽度<b>自动切换</b>布局,不需要任何设置:</p>
+  <figure>
+    <img src="images/web-desktop-overview.png" alt="桌面端整页布局" onclick="zoom(this)">
+    <figcaption>🖥 电脑端:左侧「上传 + 共享文件」、右侧「聊天室」等宽分栏,两列底部自动对齐;顶部是地址栏、复制/二维码按钮和四个统计格</figcaption>
+  </figure>
+  <div class="schema"><span class="hl">🖥 电脑(宽屏 &gt; 980px):左右等宽分栏</span>
+┌──────────────────────────┬──────────────────────────┐
+│ 📤 上传区(点击/拖拽/粘贴)     │ 💬 聊天室                  │
+│ 📁 共享文件(排序/分页/操作)   │    昵称 + emoji 头像        │
+│ ‹ 1 2 3 ›  每页 8 个         │    消息区 + 发送            │
+└──────────────────────────┴──────────────────────────┘
+
+<span class="hl">📱 手机 / 窄屏(≤ 980px):文件优先 + 悬浮聊天</span>
+┌──────────────────────────┐
+│ 📤 上传区                  │         右下角 💬 悬浮球
+│ 📁 共享文件(分页)           │         ┌────┐
+│ ‹ 1 2 ›                   │         │ 💬 │← 未读角标
+└──────────────────────────┘         └────┘
+                              点它 → 底部滑出全屏聊天面板</div>
+  <div class="tip"><b>顶部统计格:</b>本机 IP / 端口 / 文件数 / 总大小。手机上自动排成 2×2,信息完整不截断。</div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <h2><span class="no">3</span>上传文件:点选 / 拖拽 / 粘贴</h2>
+  <figure>
+    <img src="images/web-desktop-files.png" alt="上传区与共享文件列表" onclick="zoom(this)">
+    <figcaption>页面顶部的虚线框就是上传区;下方「共享文件」列表实时展示已共享的文件</figcaption>
+  </figure>
+  <p>三种方式任选,都支持<b>一次多个文件</b>:</p>
+  <table>
+    <tr><th>方式</th><th>操作</th><th>适合场景</th></tr>
+    <tr><td><b>点击选择</b></td><td>点上传区任意位置 → 文件选择框 → 按住 <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> 多选</td><td>文件在深层文件夹</td></tr>
+    <tr><td><b>拖拽</b></td><td>把文件拖到上传区,边框变蓝时松手</td><td>手里正开着文件夹</td></tr>
+    <tr><td><b>粘贴</b></td><td>复制文件后在页面按 <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>Cmd</kbd>+<kbd>V</kbd></td><td>截图直接粘贴,聊天工具截图党最爱</td></tr>
+  </table>
+  <ul>
+    <li>每个文件一条独立进度条,实时显示<b>百分比 + 速度</b>(如 <code>63% 8.4 MB/s</code>),完成后变绿自动收起</li>
+    <li>传完立即出现在「共享文件」列表第 1 页</li>
+    <li>服务端上传前自动检查磁盘剩余空间,不足会明确报错</li>
+  </ul>
+  <div class="tip"><b>没有大小和类型限制</b>——几个 GB 的视频、安装包都能传,局域网内跑满带宽。</div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <h2><span class="no">4</span>下载与预览</h2>
+  <ul>
+    <li><b>下载</b>:点文件行末尾的 <span class="dot b"></span><b>蓝色下载按钮</b>,或直接点文件名</li>
+    <li><b>图片预览</b>:jpg / png / gif / webp 等图片直接显示缩略图,并带橙色「预览」标记</li>
+    <li>其他类型显示类型角标(PDF / ZIP / VID / AUD…),一眼识别</li>
+  </ul>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <h2><span class="no">5</span>分享文件(绿按钮)</h2>
+  <figure>
+    <img src="images/web-file-buttons.png" alt="文件行三个操作按钮" onclick="zoom(this)">
+    <figcaption>每个文件行固定三个等大按钮:<span class="dot b"></span>蓝=下载 ·<span class="dot g"></span>灰=删除 ·<span class="dot gr"></span>绿=分享</figcaption>
+  </figure>
+  <p>最右侧的 <span class="dot gr"></span><b>绿色分享按钮</b>,手机和电脑表现不同:</p>
+  <table>
+    <tr><th>设备</th><th>点击后</th></tr>
+    <tr><td>📱 手机</td><td>弹出<b>系统分享面板</b>——可直接发到微信、QQ、钉钉等</td></tr>
+    <tr><td>💻 电脑</td><td><b>自动复制该文件的下载链接</b>,右上角绿色提示「分享链接已复制」</td></tr>
+  </table>
+  <div class="tip"><b>分享出去的链接自带访问令牌</b>——即使共享方开启了配对校验,同事点开链接即可直接下载,不用再输配对码。</div>
+  <div class="warn"><b>注意:</b>链接里带着你的访问凭证,请只发给可信的同事,不要公开张贴。</div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <h2><span class="no">6</span>删除文件(灰按钮)</h2>
+  <div class="step"><div class="n">1</div><div class="b"><p>点文件行的 <span class="dot g"></span><b>灰色垃圾桶按钮</b></p></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><p>弹出确认框「确定删除 xxx 吗?此操作不可撤销」</p></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><p>点「确认」→ 文件消失、列表自动刷新;当前页删空会自动退回上一页</p></div></div>
+  <div class="warn"><b>删除立即生效</b>,没有回收站。删错只能重新上传。</div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7">
+  <h2><span class="no">7</span>文件列表:排序 / 分页 / 刷新</h2>
+  <ul>
+    <li><b>排序</b>:「最新 / 名称 / 大小」三档切换;切换后自动回到第 1 页</li>
+    <li><b>分页</b>:每页固定 8 个文件,底部 <code>‹ 1 2 … n ›</code> 页码导航;只有一页时页码自动隐藏</li>
+    <li><b>刷新</b>:右上角圆形箭头按钮;别人传了新文件后点一下即可看到</li>
+    <li><b>统计</b>:顶部「文件数 / 总大小」实时汇总共享目录</li>
+  </ul>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="s8">
+  <h2><span class="no">8</span>聊天室:昵称 / 头像 / 发消息</h2>
+  <figure>
+    <img src="images/web-desktop-chat.png" alt="聊天室" onclick="zoom(this)">
+    <figcaption>桌面端聊天室固定在右侧,发消息、看回复不用切页面</figcaption>
+  </figure>
+  <h3>8.1 昵称</h3>
+  <ul>
+    <li>首次打开按设备自动生成,如 <code>iPhone-8231</code>、<code>Mac Chrome-3387</code>,<b>永久固定</b></li>
+    <li>输入框留空 = 使用自动昵称(灰字就是它);填了自定义昵称则优先用自定义,且自动记住</li>
+  </ul>
+  <h3>8.2 头像</h3>
+  <ul>
+    <li>头像由昵称自动计算的 <b>emoji</b>(24 选 1)——改昵称即换头像</li>
+    <li>同一昵称在所有人屏幕上头像一致;历史消息同样有头像</li>
+  </ul>
+  <h3>8.3 发消息</h3>
+  <ul>
+    <li>输入后按 <kbd>Enter</kbd> 或点「发送」;单条最多 2000 字</li>
+    <li>电脑端与手机端<b>实时互通</b>,共享方在桌面应用「聊天」标签页同步可见</li>
+    <li>服务端保留最近 200 条记录,刷新页面不丢</li>
+  </ul>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="s9">
+  <h2><span class="no">9</span>手机上的聊天:悬浮球与底部面板</h2>
+  <figure>
+    <img src="images/web-mobile-chat.png" alt="手机聊天面板" onclick="zoom(this)">
+    <figcaption>手机端聊天面板从底部滑出:第一行标题 + 关闭,第二行头像 + 昵称(整行可用),消息区几乎全屏</figcaption>
+  </figure>
+  <div class="step"><div class="n">1</div><div class="b"><p>手机上聊天入口是右下角 <b>💬 悬浮球</b>,常驻可见、不挡文件操作</p></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><p>有人发消息时,悬浮球出现<b>红色数字角标</b>(未读条数,最多 99+)</p></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><p>点悬浮球 → 面板滑出 → 打字发送</p></div></div>
+  <div class="step"><div class="n">4</div><div class="b"><p>收起:点上方遮罩 / 点右上角 ✕ / 按 <kbd>Esc</kbd> 任选</p></div></div>
+  <div class="tip">面板里昵称输入框占整行宽度,<b>再长的设备名也显示得下</b>;iPhone 底部横条区域已做安全区适配。</div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+  <h2><span class="no">10</span>复制链接与扫码</h2>
+  <figure>
+    <img src="images/web-url-copy.png" alt="地址栏与复制按钮" onclick="zoom(this)">
+    <figcaption>地址栏右侧:复制按钮(一键复制+绿色提示)、二维码按钮(弹出大图)</figcaption>
+  </figure>
+  <ul>
+    <li><b>复制</b>:一键完成,手机浏览器也有效(自动降级兼容);失败时会提示手动复制并自动选中地址</li>
+    <li><b>二维码</b>:由共享方电脑<b>本地生成</b>,不依赖外网;同事扫码直达</li>
+    <li>开启配对时,复制的链接和二维码<b>自动带访问令牌</b>,扫码/点开即用</li>
+  </ul>
+</section>
+
+<!-- ============ 11 ============ -->
+<section id="s11">
+  <h2><span class="no">11</span>配对码与只读模式(如已开启)</h2>
+  <p>共享方可在桌面应用里控制两道开关,开启后网页端表现如下:</p>
+  <table>
+    <tr><th>开关</th><th>网页端表现</th></tr>
+    <tr><td><b>开启配对</b></td><td>首次打开弹出「需要配对」层 → 输入桌面端显示的 <b>4 位数字配对码</b> → 点「配 对」→ 刷新进入;配对一次长期有效</td></tr>
+    <tr><td><b>只读模式</b></td><td>上传区消失、聊天输入框消失,文件列表顶部出现 🔒 橙色横幅「只读模式」——仍可下载、预览、分享</td></tr>
+  </table>
+  <div class="mockpair">
+    <div class="pbox">
+      <h4>需要配对</h4>
+      <p>输入电脑「访问令牌」完成配对</p>
+      <input type="text" placeholder="········" readonly>
+      <button>配 对</button>
+    </div>
+  </div>
+  <div class="mockpair"><p class="cap">▲ 配对弹层示意(非截图)</p></div>
+  <div class="warn">配对码输错会再次弹出,请对照桌面端实时显示的 4 位码;开启配对后重启服务,码会重新生成。</div>
+</section>
+
+<!-- ============ 12 ============ -->
+<section id="s12">
+  <h2><span class="no">12</span>常见问题急救箱</h2>
+  <details><summary>地址打不开 / 一直转圈?</summary>
+    <div class="a">① 确认和共享方在<b>同一局域网</b>(同一 Wi-Fi);② 确认对方已点「启动服务」且显示 ● 运行中;③ 核对地址里的 IP 和端口与应用窗口一致。</div>
+  </details>
+  <details><summary>点复制按钮没反应?</summary>
+    <div class="a">新版已兼容局域网 HTTP 环境。若仍失败,会出现红色「复制失败,请手动复制」——此时地址已自动选中,按 <kbd>Ctrl</kbd>+<kbd>C</kbd> 即可。</div>
+  </details>
+  <details><summary>上传到一半失败了?</summary>
+    <div class="a">看进度条变红的原因:磁盘空间不足会明确写出需要/可用多少;网络闪断则把该文件重新上传一次即可。</div>
+  </details>
+  <details><summary>手机上找不到聊天室?</summary>
+    <div class="a">在右下角 💬 悬浮球里,点开即见。见本文第 9 节。</div>
+  </details>
+  <details><summary>别人发消息我怎么没提醒?</summary>
+    <div class="a">电脑端聊天常驻右侧同屏;手机端看悬浮球红色角标(不在聊天面板时才计数)。</div>
+  </details>
+  <details><summary>网页会偷跑流量吗?</summary>
+    <div class="a">聊天列表每 3 秒一次极小请求;二维码本地生成;除此之外无任何外联。</div>
+  </details>
+</section>
+
+<footer>Wlan-Flash-Transfer · 网页端布局E · 截图与实际界面如有细微出入,以实际页面为准</footer>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('show')">
+  <img id="lightboxImg" src="" alt="">
+</div>
+<script>
+function zoom(img) {
+  document.getElementById("lightboxImg").src = img.src;
+  document.getElementById("lightbox").classList.add("show");
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.getElementById("lightbox").classList.remove("show");
+});
+</script>
+</body>
+</html>
