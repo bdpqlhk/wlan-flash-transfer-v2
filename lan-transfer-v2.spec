@@ -62,11 +62,15 @@ a = Analysis(
 # 与 GUI 渲染自检会在打包后立刻暴露问题。
 _QT_DROP = (
     # Qt 动态库框架(PyInstaller 内路径形如 .../lib/QtNetwork.framework/..., 按框架名匹配)
-    "qtnetwork", "qtpdf", "qpdf", "qtdbus", "qtqml", "qtquick", "qtwebengine",
+    # 注意: conda 版 Qt 的 QtGui 硬链接 QtDBus, 不可剔除(否则冻结包 GUI 启动即崩)
+    "qtnetwork", "qtpdf", "qpdf", "qtqml", "qtquick", "qtwebengine",
     "qtwebchannel", "qtwebsockets", "qtbluetooth", "qtnfc", "qtserialport",
     "qttest", "qtsql", "qtxml", "qtdesigner", "qtcharts", "qtdatavisualization",
     "qtvirtualkeyboard", "qtremoteobjects", "qtstatemachine", "qtscxml",
     "63d",
+    # 图像/图标精简: GUI 不加载这些格式(tiff/webp/heif/2000日语系等), 也不用 SVG 图标
+    "qtsvg", "qsvg", "qmacheif", "qmacjp2", "qtiff", "qwebp", "qtga",
+    "qwbmp", "qtuiotouch",
     # 模块名兜底(如 PyQt6/QtNetwork.abi3.so)
     "qt6network", "qt6qml", "qt6quick", "qt6pdf", "qt6multimedia", "qt6sensors",
     "qt6positioning", "qt6websockets", "qt6webchannel", "qt6bluetooth", "qt6nfc",
