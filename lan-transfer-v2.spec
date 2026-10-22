@@ -29,11 +29,17 @@ def _icon(ext: str):
 
 ICON = _icon("ico") if sys.platform == "win32" else _icon("icns")
 
+# Windows 打包时把 ico 带进包内, 供运行时 setWindowIcon 使用(mac 窗口不显示图标)
+_datas = []
+_win_ico = os.path.join(spec_dir, "assets", "icon.ico")
+if sys.platform == "win32" and os.path.exists(_win_ico):
+    _datas.append((_win_ico, "assets"))
+
 a = Analysis(
     ["main.py"],
     pathex=[spec_dir],
     binaries=[],
-    datas=[],
+    datas=_datas,
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],

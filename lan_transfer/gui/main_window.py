@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Wlan-Flash-Transfer-V2")
+        self.setWindowIcon(self._app_icon())   # Windows 标题栏/任务栏图标
         self.resize(1020, 700)
         self.setMinimumSize(860, 560)
 
@@ -405,10 +406,19 @@ class MainWindow(QMainWindow):
 
     def _about(self) -> None:
         QMessageBox.about(
-            self, "关于 LAN 文件传输 v2",
-            f"<b>LAN 文件传输 v{__version__}</b>(PyQt6 重写版)<br>"
-            f"局域网 AirDrop:任意设备浏览器打开地址即可上传/下载/聊天<br><br>"
+            self, "关于 Wlan-Flash-Transfer",
+            f"<b>Wlan-Flash-Transfer v{__version__}</b>(PyQt6 版)<br>"
+            f"局域网文件互传:任意设备浏览器打开地址即可上传/下载/分享/聊天<br><br>"
             f"网页端零依赖任何客户端;桌面端负责启停服务、选目录、看日志与扫码。")
+
+    def _app_icon(self) -> QIcon:
+        """窗口图标(Windows 标题栏/任务栏):开发态取仓库 assets/,打包态取解包目录。"""
+        base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
+        for name in ("icon.ico", "icon.png", "icon.icns"):
+            p = base / "assets" / name
+            if p.exists():
+                return QIcon(str(p))
+        return QIcon()
 
     # ------------------------------------------------------------------ #
     # 配对令牌 / 权限模式
