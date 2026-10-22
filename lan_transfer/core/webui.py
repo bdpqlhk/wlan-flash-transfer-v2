@@ -18,6 +18,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Wlan-Flash-Transfer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234f8af7'/%3E%3Cstop offset='1' stop-color='%237c6ff7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M37.4 7.2 19.1 35.4h11.3L25.6 56.8l19.3-29.3h-11.8z' fill='%23fff'/%3E%3C/svg%3E">
 <!--
   Wlan-Flash-Transfer 网页端(单页应用)
   · 桌面: 等宽分栏 —— 文件区(分页/下载/删除/分享) | 聊天室, 两列底部对齐
